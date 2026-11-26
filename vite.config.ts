@@ -45,6 +45,8 @@ export default defineConfig({
       workbox: {
         // Precache the whole app (code, fonts, artwork) so it opens with no network at all.
         globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,webmanifest}'],
+        // The social image is for link previews, not for using the app offline.
+        globIgnores: ['og.png'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/__\//, /^\/ping\.txt/],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,

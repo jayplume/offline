@@ -8,7 +8,7 @@
  * - Remote Config falls back to in-code defaults when it cannot fetch.
  */
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
+import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 import { getAI, GoogleAIBackend, type AI } from 'firebase/ai';
 import {
   fetchAndActivate,
@@ -162,6 +162,16 @@ export async function refreshRuntimeConfig(): Promise<RuntimeConfig> {
   }
   listeners.forEach((l) => l(runtime));
   return runtime;
+}
+
+/**
+ * Fetches an App Check token ahead of the first AI request when online, so the first answer does
+ * not pay for loading reCAPTCHA and exchanging a token. Never needed for on-device inference.
+ */
+export function warmAppCheck(): void {
+  const h = getFirebase();
+  if (!h?.appCheck) return;
+  void getToken(h.appCheck, false).catch(() => {});
 }
 
 export function getRuntimeConfig(): RuntimeConfig {

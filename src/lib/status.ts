@@ -6,7 +6,7 @@
 import { useSyncExternalStore } from 'react';
 import type { DeviceModel } from './ai/route';
 import { getDeviceModelStatus } from './ai/engine';
-import { getFirebase, getRuntimeConfig, isFirebaseConfigured, onRuntimeConfig, refreshRuntimeConfig, type AppCheckMode, type RuntimeConfig } from './firebase';
+import { getFirebase, getRuntimeConfig, isFirebaseConfigured, onRuntimeConfig, refreshRuntimeConfig, warmAppCheck, type AppCheckMode, type RuntimeConfig } from './firebase';
 import { onDeviceSpeechStatus, type SpeechStatus } from './speech';
 import { storageStatus } from './audio/recorder';
 
@@ -117,7 +117,18 @@ export function startStatusWatch(): void {
   started = true;
   getFirebase();
   onRuntimeConfig((runtime) => setStatus({ runtime }));
-  const refresh = () => void refreshStatus().then((s) => (s.online ? refreshRuntimeConfig() : undefined));
+  let warmed = false;
+  const refresh = () =>
+    void refreshStatus().then((s) => {
+      if (!s.online) return;
+      if (!warmed) {
+        warmed = true;
+        // Idle-time warm-up so the first cloud answer is not slowed by token set-up.
+        const idle = (window as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
+        idle(() => warmAppCheck());
+      }
+      return refreshRuntimeConfig();
+    });
   window.addEventListener('online', refresh);
   window.addEventListener('offline', () => setStatus({ online: false, browserOnline: false }));
   document.addEventListener('visibilitychange', () => {

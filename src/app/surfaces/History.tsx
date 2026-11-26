@@ -52,7 +52,7 @@ export function HistorySurface() {
               <li key={r.id} className={`run${r.ok ? '' : ' is-failed'}`}>
                 <div className="run-top">
                   <span className="run-task">{TASK[r.kind]}</span>
-                  {r.ok && r.source ? <SourceBadge source={r.source} model={r.model ?? undefined} /> : <span className="badge badge-failed">Failed</span>}
+                  {r.ok && r.source ? <SourceBadge source={r.source} model={r.model ?? undefined} fellBack={Boolean(r.note?.startsWith('Device failed'))} /> : <span className="badge badge-failed">Failed</span>}
                 </div>
                 <div className="run-meta">
                   <span>{clockTime(r.at)}</span>

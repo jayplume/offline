@@ -1636,8 +1636,10 @@ del {
   resize: none;
   line-height: 1.45;
 }
-.composer-box textarea:focus {
+.composer-box textarea:focus,
+.composer-box textarea:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 .send-btn,
 .dictate-btn {
