@@ -1,0 +1,68 @@
+/* Offline design tokens. Palette from the brief: sky blue, soft blue, ash, white, ink. */
+:root {
+  /* Sky: the brand, active states, the cloud. */
+  --sky-50: #f3faff;
+  --sky-100: #e3f3fd;
+  --sky-200: #c8e8fb;
+  --sky-300: #9dd4f4;
+  --sky-400: #74c0ec;
+  /* Soft blue: interaction, focus, links. 600 is the accessible text blue on white (5.0:1). */
+  --blue-500: #3c8dd0;
+  --blue-600: #2b74b5;
+  --blue-700: #23608f;
+  /* Ash: paper, lines, quiet text. 500 passes 4.5:1 on white. */
+  --ash-25: #fafbfc;
+  --ash-50: #f5f7f9;
+  --ash-100: #eceff2;
+  --ash-200: #dde2e7;
+  --ash-300: #c6cdd4;
+  --ash-400: #98a2ad;
+  --ash-500: #66717d;
+  --ash-600: #4d5864;
+  --white: #ffffff;
+  --ink: #1b232b;
+
+  --font: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale (1.2 minor third around a 16px body). */
+  --t-micro: 0.78125rem; /* 12.5 */
+  --t-small: 0.875rem; /* 14 */
+  --t-body: 1rem; /* 16 */
+  --t-lead: 1.125rem; /* 18 */
+  --t-h3: 1.25rem; /* 20 */
+  --t-h2: 1.5rem; /* 24 */
+  --t-h1: 1.875rem; /* 30 */
+
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  --line: 1px solid var(--ash-200);
+  --shadow-pop: 0 14px 36px rgba(27, 35, 43, 0.12), 0 2px 6px rgba(27, 35, 43, 0.06);
+  --shadow-sheet: 0 -10px 40px rgba(27, 35, 43, 0.1);
+  --focus: 0 0 0 3px var(--sky-200), 0 0 0 4.5px var(--blue-500);
+
+  /* Motion: calm and deliberate. Reveals take their time; feedback stays instant. */
+  --ease-calm: cubic-bezier(0.22, 0.8, 0.2, 1);
+  --ease-settle: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-calm: cubic-bezier(0.45, 0, 0.75, 0.2);
+  --d-press: 120ms;
+  --d-quick: 220ms;
+  --d-rise: 460ms;
+  --d-reveal: 780ms;
+  --d-collapse: 600ms;
+
+  --bar-h: 60px;
+  --app-max: 560px;
+  --gutter: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-rise: 160ms;
+    --d-reveal: 200ms;
+    --d-collapse: 160ms;
+  }
+}
