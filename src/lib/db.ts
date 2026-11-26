@@ -55,7 +55,31 @@ export interface Draft {
 
 export interface AudioRecord {
   id: string; // same id as the draft
-  blob: Blob;
+  blob?: Blob;
+  /** The same audio as raw bytes, where the browser won't store a Blob (Safari Private Browsing). */
+  bytes?: ArrayBuffer;
+  type?: string;
+}
+
+/** The recording as a Blob, however it was stored. */
+export function audioBlob(rec: AudioRecord | undefined | null): Blob | null {
+  if (!rec) return null;
+  if (rec.blob) return rec.blob;
+  if (rec.bytes) return new Blob([rec.bytes], { type: rec.type || 'audio/webm' });
+  return null;
+}
+
+/**
+ * Stores a recording. Safari's private mode refuses Blobs in IndexedDB ("Error preparing Blob/File
+ * data"), so when that write fails the same audio is stored as bytes instead.
+ */
+async function storeAudio(draftId: string, blob: Blob, write: (rec: AudioRecord) => Promise<void>): Promise<void> {
+  try {
+    await write({ id: draftId, blob });
+  } catch {
+    // Safari reports this one without a useful error name, so any failure gets one retry as bytes.
+    await write({ id: draftId, bytes: await blob.arrayBuffer(), type: blob.type });
+  }
 }
 
 export interface Chat {
@@ -243,17 +267,19 @@ export async function createDraft(init: Partial<Draft> & { localOnly: boolean })
 }
 
 export async function saveRecording(draftId: string, blob: Blob, durationMs: number): Promise<void> {
-  await db.transaction('rw', db.drafts, db.audio, async () => {
-    await db.audio.put({ id: draftId, blob });
-    await db.drafts.update(draftId, {
-      hasAudio: true,
-      audioMime: blob.type,
-      durationMs,
-      audioBytes: blob.size,
-      audioDeletedAt: undefined,
-      updatedAt: Date.now(),
-    });
-  });
+  await storeAudio(draftId, blob, (rec) =>
+    db.transaction('rw', db.drafts, db.audio, async () => {
+      await db.audio.put(rec);
+      await db.drafts.update(draftId, {
+        hasAudio: true,
+        audioMime: blob.type,
+        durationMs,
+        audioBytes: blob.size,
+        audioDeletedAt: undefined,
+        updatedAt: Date.now(),
+      });
+    }),
+  );
 }
 
 /** Sets the transcript as the Original version; an existing original is never overwritten. */
@@ -340,20 +366,22 @@ export async function deleteDraft(draftId: string, withChat: boolean): Promise<v
 
 /** Saves what has been recorded so far, so closing the tab mid-recording loses at most a second. */
 export async function checkpointRecording(draftId: string, blob: Blob, durationMs: number): Promise<void> {
-  await db.transaction('rw', db.drafts, db.audio, async () => {
-    const d = await db.drafts.get(draftId);
-    if (!d || !d.recordingActive) return;
-    await db.audio.put({ id: draftId, blob });
-    await db.drafts.update(draftId, { hasAudio: true, audioMime: blob.type, durationMs, audioBytes: blob.size });
-  });
+  await storeAudio(draftId, blob, (rec) =>
+    db.transaction('rw', db.drafts, db.audio, async () => {
+      const d = await db.drafts.get(draftId);
+      if (!d || !d.recordingActive) return;
+      await db.audio.put(rec);
+      await db.drafts.update(draftId, { hasAudio: true, audioMime: blob.type, durationMs, audioBytes: blob.size });
+    }),
+  );
 }
 
 /** On start-up: recordings that were still running when the app closed become normal drafts. */
 export async function recoverInterruptedRecordings(): Promise<number> {
   const open = await db.drafts.filter((d) => Boolean(d.recordingActive)).toArray();
   for (const d of open) {
-    const audio = await db.audio.get(d.id);
-    if (audio && audio.blob.size > 0) await db.drafts.update(d.id, { recordingActive: false, recovered: true, updatedAt: Date.now() });
+    const audio = audioBlob(await db.audio.get(d.id));
+    if (audio && audio.size > 0) await db.drafts.update(d.id, { recordingActive: false, recovered: true, updatedAt: Date.now() });
     else await db.drafts.delete(d.id);
   }
   return open.length;

@@ -32,6 +32,7 @@ import { AudioCard } from '../ui/AudioCard';
 import {
   activeText,
   addVersion,
+  audioBlob,
   db,
   deleteAudio,
   deleteDraft,
@@ -142,9 +143,9 @@ function DraftView({ draft, fresh, focus }: { draft: Draft; fresh?: boolean; foc
     const ctrl = new AbortController();
     abort.current = ctrl;
     try {
-      const audio = await db.audio.get(draft.id);
+      const audio = audioBlob(await db.audio.get(draft.id));
       if (!audio) throw new AIUserError('The audio for this draft is gone.', 'unknown');
-      const { segments, model } = await transcribe(audio.blob, {
+      const { segments, model } = await transcribe(audio, {
         route,
         itemId: draft.id,
         signal: ctrl.signal,

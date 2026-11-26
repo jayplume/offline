@@ -259,6 +259,20 @@ interface Snapshot {
 }
 
 /**
+ * A scrolling area in a copy becomes a plain clipped box at the same scroll position. Safari
+ * gives every scrolling area its own layer, as tall as everything inside it; across a few dozen
+ * copies of a long chat that ran an iPhone out of memory and the page crashed.
+ */
+function flattenScroller(live: Element, copy: HTMLElement): void {
+  if (live.scrollHeight <= live.clientHeight + 1 && live.scrollWidth <= live.clientWidth + 1) return;
+  const cs = getComputedStyle(live);
+  if (!/auto|scroll|overlay/.test(`${cs.overflowX} ${cs.overflowY}`)) return;
+  copy.style.setProperty('overflow', 'hidden', 'important');
+  copy.style.setProperty('-webkit-overflow-scrolling', 'auto');
+  copy.style.setProperty('overscroll-behavior', 'auto');
+}
+
+/**
  * A copy of `el` that looks exactly like it does now: scroll positions kept, form values kept
  * (cloning carries them), ids and form names removed so the copies can't disturb the page, and
  * anything off screen emptied (its box kept, so nothing on screen moves) to keep copies light.
@@ -269,6 +283,7 @@ function snapshot(el: HTMLElement, R: DOMRect): Snapshot {
 
   const visit = (live: Element, copy: Element, path: number[]) => {
     if (live.scrollTop > 0 || live.scrollLeft > 0) scrolls.push({ path, top: live.scrollTop, left: live.scrollLeft });
+    flattenScroller(live, copy as HTMLElement);
     const lk = live.children;
     const ck = copy.children;
     const n = Math.min(lk.length, ck.length);
@@ -342,7 +357,10 @@ function snapshot(el: HTMLElement, R: DOMRect): Snapshot {
         for (const s of scrolls) {
           let n: Element | undefined = root;
           for (const i of s.path) n = n?.children[i];
-          n?.scrollTo({ top: s.top, left: s.left, behavior: 'instant' });
+          if (n) {
+            n.scrollTop = s.top;
+            n.scrollLeft = s.left;
+          }
         }
       }
     },
@@ -419,6 +437,20 @@ export function genie(el: HTMLElement, opt: GenieOptions): Genie {
 
   const begin = () => {
     if (done) return;
+    try {
+      build();
+    } catch (err) {
+      // The motion is decoration: if anything goes wrong, get out of the way and show the page.
+      console.warn('[genie] skipped:', err);
+      t = open ? 1 : 0;
+      dimmer?.remove();
+      layer?.remove();
+      layer = null;
+      stop(true);
+    }
+  };
+
+  const build = () => {
     const R = el.getBoundingClientRect();
     if (!el.isConnected || R.width < 4 || R.height < 4) {
       t = open ? 1 : 0;
@@ -426,8 +458,10 @@ export function genie(el: HTMLElement, opt: GenieOptions): Genie {
       return;
     }
     const t0 = performance.now();
-    // Thin slices keep the curve smooth and the bend free of perspective stretch.
-    const N = reduce ? 1 : Math.max(14, Math.min(40, Math.round(R.height / 14)));
+    // Thin slices keep the curve smooth and the bend free of perspective stretch. Phones get
+    // fewer: each slice is a copy of the page, and phone memory is tight.
+    const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    const N = reduce ? 1 : Math.max(14, Math.min(coarse ? 24 : 40, Math.round(R.height / 14)));
     const sh = R.height / N;
     const snap = snapshot(el, R);
 

@@ -205,36 +205,42 @@ function Welcome({ open, onDone }: { open: boolean; onDone: () => void }) {
 
 function UpdatePrompt() {
   const toast = useToast();
-  const loadedAt = useRef(performance.now());
+  // A page that opened under a service worker can be updated; a first visit is already current.
+  const startedControlled = useRef(typeof navigator !== 'undefined' && Boolean(navigator.serviceWorker?.controller));
   const {
-    needRefresh: [needRefresh],
     offlineReady: [offlineReady],
-    updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    // Open tabs and installed windows check for a new version when you come back to them, and
+    // every half hour, so a desktop that never closes the app still gets updates.
+    onRegisteredSW(_url, reg) {
+      if (!reg) return;
+      const check = () => void reg.update().catch(() => {});
+      window.setInterval(check, 30 * 60_000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+    },
+  });
   useEffect(() => {
     if (offlineReady) toast('Offline is ready to open without a connection');
   }, [offlineReady, toast]);
+
+  // A new version has taken over (public/sw-update.js asks). Reload into it now if nothing is
+  // open; never in the middle of a recording, a draft or a chat: then offer it instead.
   useEffect(() => {
-    if (!needRefresh) return;
-    // Found right after opening, with nothing open yet: switch to the new version now, so nobody
-    // keeps an old build by missing a message. Later on, never interrupt: ask, and keep asking.
-    const KEY = 'offline:auto-updated';
-    let recent = false;
-    try {
-      recent = Date.now() - Number(sessionStorage.getItem(KEY) ?? 0) < 30_000;
-    } catch {
-      recent = true; // No session storage: never risk a reload loop, just ask.
-    }
-    if (!recent && performance.now() - loadedAt.current < 8000 && !document.querySelector('#root .surface-layer, .sheet-root')) {
-      try {
-        sessionStorage.setItem(KEY, String(Date.now()));
-      } catch {
-        /* see above */
-      }
-      void updateServiceWorker(true);
-      return;
-    }
-    toast('A new version of Offline is ready', { label: 'Reload', run: () => void updateServiceWorker(true), sticky: true });
-  }, [needRefresh, toast, updateServiceWorker]);
+    const sw = navigator.serviceWorker;
+    if (!sw) return;
+    const onMessage = (e: MessageEvent) => {
+      if ((e.data as { type?: string } | null)?.type !== 'offline:new-version') return;
+      e.ports[0]?.postMessage({ handled: true });
+      if (!startedControlled.current) return;
+      const busy = Boolean(document.querySelector('#root .surface-layer, .sheet-root'));
+      if (!busy) window.location.reload();
+      else toast("Offline was updated. Reload when you're ready.", { label: 'Reload', run: () => window.location.reload(), sticky: true });
+    };
+    sw.addEventListener('message', onMessage);
+    sw.startMessages?.();
+    return () => sw.removeEventListener('message', onMessage);
+  }, [toast]);
   return null;
 }

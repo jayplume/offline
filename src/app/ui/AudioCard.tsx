@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronDown, Headphones, Pause, Play } from 'lucide-react';
-import { db, type Draft } from '../../lib/db';
+import { audioBlob, db, type Draft } from '../../lib/db';
 import { headphonesLikely } from '../../lib/audio/recorder';
 import { formatDuration, sentences } from '../../lib/text';
 import { setSetting, useSettings } from '../settings';
@@ -32,11 +32,12 @@ export function AudioCard({ draft }: { draft: Draft }) {
   const durationSec = (draft.durationMs ?? 0) / 1000;
 
   useEffect(() => {
-    if (!rec?.blob) return;
-    const u = URL.createObjectURL(rec.blob);
+    const blob = audioBlob(rec);
+    if (!blob) return;
+    const u = URL.createObjectURL(blob);
     setUrl(u);
     return () => URL.revokeObjectURL(u);
-  }, [rec?.blob]);
+  }, [rec]);
 
   useEffect(() => {
     if (!url) return;

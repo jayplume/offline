@@ -140,7 +140,17 @@ export function ChatSurface({ id }: { id: string }) {
     if (pending) void run(chatId, pending.route);
   }, [chatId, run]);
 
+  // Opening a chat lands on the newest message at once (and the opening motion is drawn from that
+  // view); after that, new messages glide into view.
+  const landed = useRef(false);
   useEffect(() => {
+    const el = scroller.current;
+    if (!el || !messages?.length) return;
+    if (!landed.current) {
+      landed.current = true;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
     scrollDown();
   }, [messages?.length]);
 

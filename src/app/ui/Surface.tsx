@@ -4,6 +4,7 @@
  * (Record → Draft → Chat) pours the next step out of the button that started it, over the last.
  */
 import {
+  Component,
   createContext,
   useCallback,
   useContext,
@@ -258,7 +259,36 @@ function CrossItem({
   }, [leaving, hold, onGone]);
   return (
     <div ref={ref} className={`surface-step tone-${tone}${leaving ? ' is-leaving' : ''}`} aria-hidden={leaving || undefined} inert={leaving || undefined}>
-      {children}
+      <StepBoundary>{children}</StepBoundary>
+    </div>
+  );
+}
+
+/** If a page fails to draw, say so on that page and keep the rest of the app working. */
+class StepBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.error('[offline] a page failed to open:', error);
+  }
+  render() {
+    return this.state.failed ? <StepFailed /> : this.props.children;
+  }
+}
+
+function StepFailed() {
+  const { close } = useSurface();
+  return (
+    <div className="tool">
+      <SurfaceBar title="Couldn't open this" />
+      <div className="empty-tool step-failed" role="alert">
+        <p>This page hit a problem and couldn't open. Your recordings, chats and notes are still saved on this device.</p>
+        <button type="button" className="btn btn-quiet" onClick={close}>
+          Back to home
+        </button>
+      </div>
     </div>
   );
 }

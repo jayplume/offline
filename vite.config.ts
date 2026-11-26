@@ -51,6 +51,11 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/__\//, /^\/ping\.txt/],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
+        // A new version takes over at once instead of waiting for every tab to close; open windows
+        // are then handed over by public/sw-update.js (reload if idle, ask if busy).
+        skipWaiting: true,
+        clientsClaim: true,
+        importScripts: ['/sw-update.js'],
       },
       devOptions: { enabled: false },
     }),

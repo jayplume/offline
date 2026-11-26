@@ -80,6 +80,38 @@ These are the problems we hit while building Offline on Firebase AI Logic hybrid
 - **`line-height` must be carried over as a ratio.** The copy lives outside the element's parent, so inherited styles are copied from `getComputedStyle`. That *resolves* `line-height: 1.5` to `18px`, and every heading inside then inherited 18 px instead of 1.5 × its own size. Copies laid out 10–25 px shorter than the real page, and a double image showed at the end. We now set the ratio, `lineHeight / fontSize`.
 - A small sheet opened from a button far away was stretched over the whole screen. The trailing edge is now dragged along once the shape is **1.35×** its own height, so it travels as a teardrop instead.
 
+## 8. iPhone Safari crashed opening long pages during the genie
+
+**What happened.** On an iPhone, opening a long chat or a recording from the home screen ended in Safari's "a problem occurred" page; short pages (Record, Note, Ask) were fine. The genie draws up to 40 copies of the page. Each page's scrolling area uses `-webkit-overflow-scrolling: touch`, and Safari gives every scrolling area its own compositing layer, sized to everything inside it. Across 40 copies of a long chat, that is far more memory than a phone allows, so the page process was killed. Our Chrome-only testing never saw it.
+
+**Fix** ([`genie.ts`](../src/app/ui/genie.ts)):
+
+- Inside the copies, every scrolling area becomes a plain clipped box (`overflow: hidden`) at the same scroll position. Nothing tall is left to composite.
+- Touch devices get at most 24 slices.
+- A failure while building the motion now gets out of the way and shows the page, and each page is wrapped in an error boundary, so a problem on one page can't blank the app.
+
+Verified in WebKit with iPhone emulation: a 24-message chat opens with 24 slices, about 2,000 copied elements in all, and every scroller flattened.
+
+## 9. Desktop never got new versions, and a fix that deadlocked
+
+**What happened.** Phones showed new features; desktop Chrome kept the old build. With the "prompt" update style, a new service worker waits until *every* tab and installed window of the app has closed; a reload is not enough. On a desktop that keeps a tab open, that can be never.
+
+**Fix:**
+
+- The service worker now takes over at once (`skipWaiting`, `clientsClaim`).
+- An extra script, [`sw-update.js`](../public/sw-update.js), tells each open window about the new version. Windows on this version or later answer, then reload if nothing is open, or offer a reload if a page is open. Windows on an older version can't answer, so they are reloaded once.
+- Open tabs check for updates when you return to them, and every half hour.
+
+**The deadlock.** The first version waited for those reloads inside the `activate` event. Page requests wait for an *activated* worker, so activation waited for the reload and the reload waited for activation: the tab sat on a blank page. The reloads now start only after activation has finished.
+
+Tested with four builds in Chrome and WebKit: an old tab updates about 3 seconds after reopening; an idle tab updates in about 1.3 seconds; a tab with a note open keeps the note and offers a reload; a first visit never reloads.
+
+## 10. Safari Private Browsing refused to store recordings
+
+**What happened.** In a private WebKit session, storing a `Blob` in IndexedDB fails (and reports no useful error name), so a recording made in Safari Private Browsing couldn't be saved.
+
+**Fix** ([`db.ts`](../src/lib/db.ts)): if storing the Blob fails, the same audio is stored as an `ArrayBuffer` with its type, and turned back into a Blob when read. Verified in a private WebKit session: the recording saved as bytes and the draft shows its length.
+
 ## More we ran into
 
 - **SDK v13 `Part` types need a discriminator.** `{ text }` no longer type-checks as a `Part`; it must be `{ type: 'text', text }` (and `{ type: 'inlineData', … }`). Runtime still accepts the old shape through `assignPartType`.
