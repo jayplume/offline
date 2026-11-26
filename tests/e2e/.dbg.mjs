@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+const [wav, outDir] = process.argv.slice(2);
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${wav}%noloop`] });
+const ctx = await browser.newContext({ viewport: { width: 430, height: 880 }, permissions: ['microphone'] });
+const page = await ctx.newPage();
+page.on('console', (m) => console.log('console.' + m.type(), m.text().slice(0, 300)));
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+await page.goto('http://localhost:5180/app');
+await page.getByRole('button', { name: 'Start' }).click();
+await page.waitForTimeout(700);
+await page.getByRole('button', { name: 'Record a thought' }).click();
+await page.waitForTimeout(5000);
+await page.screenshot({ path: `${outDir}/dbg.png` });
+console.log('STATE TEXT:', await page.locator('.record-state, .record-error').first().innerText().catch(() => 'none'));
+console.log(await page.evaluate(async () => { try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); return 'gum ok ' + s.getAudioTracks()[0].label; } catch (e) { return 'gum err ' + e.name + ' ' + e.message; } }));
+await browser.close();
