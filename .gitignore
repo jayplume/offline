@@ -1,0 +1,14 @@
+node_modules
+dist
+dev-dist
+coverage
+*.log
+.DS_Store
+.firebase
+firebase-debug.log*
+# Local env files hold the App Check debug token: never commit them.
+.env.local
+.env.*.local
+test-results
+playwright-report
+.claude/

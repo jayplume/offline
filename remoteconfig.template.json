@@ -1,0 +1,32 @@
+{
+  "conditions": [],
+  "parameters": {
+    "cloud_model": {
+      "defaultValue": { "value": "gemini-3.5-flash-lite" },
+      "description": "Gemini model used for cloud inference (hybrid fallback, chat, prompt shaping).",
+      "valueType": "STRING"
+    },
+    "transcribe_model": {
+      "defaultValue": { "value": "gemini-3.5-flash-lite" },
+      "description": "Gemini model used to transcribe recordings in the cloud (audio is not supported on-device).",
+      "valueType": "STRING"
+    },
+    "device_char_budget": {
+      "defaultValue": { "value": "14000" },
+      "description": "Input size (characters) above which Automatic routing prefers the cloud. Gemini Nano's limit is 9216 tokens for input plus output.",
+      "valueType": "NUMBER"
+    },
+    "transcribe_chunk_seconds": {
+      "defaultValue": { "value": "120" },
+      "description": "Recordings are transcribed in chunks of this many seconds so long recordings stay under the inline request size limit.",
+      "valueType": "NUMBER"
+    },
+    "prompt_templates": {
+      "defaultValue": {
+        "value": "[{\"id\":\"email\",\"label\":\"Write an email\",\"instruction\":\"Turn this into a clear email. Start with a subject line, then the body. Keep the sender's intent and facts.\"},{\"id\":\"meeting\",\"label\":\"Summarize a meeting\",\"instruction\":\"Summarize this as key points, decisions, and action items. Name an owner for each action when one is mentioned.\"},{\"id\":\"plan\",\"label\":\"Make a plan\",\"instruction\":\"Turn this into a short step-by-step plan, ordered by priority, with rough timing.\"},{\"id\":\"brainstorm\",\"label\":\"Brainstorm\",\"instruction\":\"Give eight varied ideas, then point out the two strongest and say why in one line each.\"},{\"id\":\"explain\",\"label\":\"Explain simply\",\"instruction\":\"Explain this clearly for someone new to the topic, with one concrete example.\"},{\"id\":\"reply\",\"label\":\"Reply to a message\",\"instruction\":\"Draft a reply that answers every point raised, in the same language as the request.\"}]"
+      },
+      "description": "Prompt templates offered in the Improve sheet. Edit here to change templates without redeploying.",
+      "valueType": "JSON"
+    }
+  }
+}
