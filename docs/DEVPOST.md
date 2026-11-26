@@ -27,6 +27,7 @@ Offline is a private voice-to-AI app built on Firebase AI Logic hybrid inference
 - **Shape.** Fix the words, *Make it clearer*, answer *what's missing*, pick a template, tone and length, or add a "What I meant" note. When Chrome's Gemini Nano is ready, this all happens on the device, offline. Every rewrite is a version; the original is never overwritten.
 - **Send when you choose.** A preview shows the exact text and where it will run (on this device, or Gemini in the cloud) before anything leaves. Reconnecting never sends anything by itself, and the app tells you so.
 - **Know where it ran.** Every answer is labelled *On this device* or *Cloud*, and History logs each request: the mode asked for, where it actually ran, the model and the latency.
+- **Keep going, or take it elsewhere.** After each answer, a few follow-ups pop up as bubbles; tap one and it lands in the box, ready to edit (nothing is sent for you). An *Export this conversation* bubble is always there: keep it as it was, or have the hybrid AI rewrite it for a cofounder, a teammate, or as meeting notes, then save it as a PDF or Markdown file, copy it, or share it to another app. The same choices sit in the chat's three-dot menu, one level in.
 - **Stay in control.** Keep any recording, chat or note on this device only. Delete the audio, the text, or everything. Set recordings to delete themselves, add an app lock, and get asked before anything plays out loud without headphones.
 
 **Value:** the thoughts you can't say out loud, or can't send right now, stop getting lost. And privacy is something you can check, not a promise you have to trust.
@@ -44,11 +45,19 @@ Offline is a private voice-to-AI app built on Firebase AI Logic hybrid inference
 - **Our layer on top of the SDK:**
   - a cloud retry when the device fails mid-answer (`PREFER_ON_DEVICE` only checks availability up front);
   - chat history packed within Gemini Nano's 9,216-token budget;
-  - shared JSON schemas for structured output on both paths (`responseJsonSchema` in the cloud, `responseConstraint` on the device);
+  - shared JSON schemas for structured output on both paths (`responseJsonSchema` in the cloud, `responseConstraint` on the device), used for *Ask me what's missing* and for the follow-up suggestions;
+  - exports rewritten by the same hybrid route (a long chat is trimmed to its newest part for the device), then turned into PDF, Markdown or a share with no network needed;
   - chunked cloud transcription of 16 kHz WAV with timed sentences, so tapping a sentence plays that moment.
 - **App Check** with reCAPTCHA Enterprise in production (enforced for AI Logic) and a debug token on the dev server only. **Remote Config** for model names, budgets and prompt templates. **Firebase Hosting**. All provisioned from the Firebase CLI.
 - **Web platform:** React 19, Vite 8, TypeScript 7, Dexie (IndexedDB) with crash-safe recording checkpoints, MediaRecorder and Web Audio, the Web Speech API with `processLocally`, WebAuthn for the app lock, and a Workbox service worker so the app opens with no network.
 - **Design:** one tool on screen at a time. Everything you open (a page, a sheet, a menu) pours out of the control you tapped, like a window leaving the Dock, and pours back into it when it closes; options live behind the three-dot menu; cancel sits top right. The palette is sky blue, soft blue, ash and white.
+
+## How to test it
+
+1. Open https://offline-hybrid-ai.web.app/app in desktop Chrome. Tap the status chip (top right): **What works right now** shows what this device can do.
+2. **On-device AI** needs Chrome 139 or later on supported hardware, with `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input` set to Enabled (and **Gemma 4 for built-in AI**, if listed), then a restart. `chrome://on-device-internals` shows the model. Without it, AI steps use Gemini in the cloud, and every answer says so.
+3. Turn on **Work offline** in the menu to see what works with no network: recording, drafts, notes and, with the model, on-device AI.
+4. No sign-in, no test account. Everything is stored in your browser; **Settings → Delete everything** clears it.
 
 ## Challenges we ran into
 

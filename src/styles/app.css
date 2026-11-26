@@ -66,9 +66,18 @@ html.surface-open body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--ink);
+  text-decoration: none;
   font-weight: 650;
   font-size: 1.0625rem;
   letter-spacing: -0.01em;
+  transition: background-color 200ms var(--ease-calm);
+}
+/* The wordmark leads to the site that explains Offline. */
+a.wordmark:hover {
+  background: var(--ash-50);
 }
 .status-chip {
   display: inline-flex;
@@ -430,6 +439,30 @@ html.surface-open body {
   height: 18px;
   color: var(--blue-600);
   flex: none;
+}
+.menu-more {
+  width: 17px;
+  height: 17px;
+  color: var(--ash-400);
+  flex: none;
+}
+/* The way back from a second level: the parent's name, quieter than the options under it. */
+.menu-back {
+  margin-bottom: 4px;
+  position: relative;
+}
+.menu-back .menu-label {
+  color: var(--ash-600);
+  font-weight: 600;
+}
+.menu-back::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--ash-100);
 }
 
 /* ───────────────────────── Surfaces ───────────────────────── */
@@ -2168,6 +2201,27 @@ del {
   color: var(--sky-300);
   font-weight: 700;
 }
+.toast-x {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -4px -8px -4px -6px;
+  border-radius: 50%;
+  color: var(--ash-300);
+}
+.toast-x svg {
+  width: 16px;
+  height: 16px;
+}
+.toast-x:hover {
+  color: var(--white);
+}
+/* While a sheet is open its buttons sit at the bottom: say things at the top instead. */
+body:has(.sheet-root) .toasts {
+  bottom: auto;
+  top: calc(16px + env(safe-area-inset-top));
+}
 .welcome h2 {
   margin: 6px 0 16px;
   font-size: var(--t-h2);
@@ -2323,4 +2377,210 @@ del {
   .home-hero {
     padding-top: 9vh;
   }
+}
+
+/* ───────────────────────── Suggestions after an answer ───────────────────────── */
+.suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 18px;
+}
+.suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 18px 18px 18px 6px;
+  border: 1px solid var(--sky-200);
+  background: var(--sky-50);
+  color: var(--ink);
+  font-size: var(--t-small);
+  font-weight: 550;
+  line-height: 1.3;
+  text-align: left;
+  transition:
+    background-color 180ms var(--ease-calm),
+    border-color 180ms var(--ease-calm),
+    transform 180ms var(--ease-calm);
+  animation: bubble-in 460ms var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+.suggest-chip:hover {
+  background: var(--sky-100);
+  border-color: var(--sky-300);
+}
+.suggest-chip:active {
+  transform: scale(0.97);
+}
+.suggest-chip svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--blue-600);
+}
+/* Moving the conversation somewhere else is always on offer, and reads as an action. */
+.suggest-chip.is-export {
+  border-color: var(--ash-200);
+  background: var(--white);
+  animation-delay: 0ms;
+}
+.suggest-chip.is-export:hover {
+  background: var(--ash-50);
+  border-color: var(--ash-300);
+}
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ───────────────────────── Export ───────────────────────── */
+.export-styles {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: start;
+  gap: 8px;
+}
+/* On a phone, two by two, equal widths. */
+@media (max-width: 520px) {
+  .export-styles {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.export-hint {
+  margin: 12px 0 0;
+  color: var(--ash-600);
+  font-size: var(--t-small);
+}
+.export-where {
+  margin: 6px 0 0;
+}
+.export-doc {
+  margin-top: 14px;
+  min-height: 160px;
+  max-height: min(46dvh, 460px);
+  overflow-y: auto;
+  padding: 20px 22px;
+  border: var(--line);
+  border-radius: var(--r-md);
+  background: var(--white);
+  box-shadow: inset 0 1px 0 var(--ash-50);
+}
+.export-wait {
+  margin: 0;
+  color: var(--ash-500);
+  font-size: var(--t-small);
+}
+.doc h1 {
+  margin: 0 0 2px;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+.doc-meta {
+  margin: 0 0 14px;
+  color: var(--ash-500);
+  font-size: var(--t-micro);
+}
+.doc-msg {
+  margin: 0 0 12px;
+}
+.doc-who {
+  margin: 0 0 2px;
+  color: var(--ash-500);
+  font-size: var(--t-micro);
+  font-weight: 600;
+}
+.doc .md {
+  font-size: var(--t-small);
+}
+.doc-foot {
+  margin: 16px 0 0;
+  padding-top: 8px;
+  border-top: var(--line);
+  color: var(--ash-500);
+  font-size: var(--t-micro);
+}
+.md-task {
+  list-style: none;
+  margin-left: -1.1em;
+}
+.md-check {
+  display: inline-block;
+  width: 1.3em;
+  color: var(--blue-600);
+}
+.export-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+.export-act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 64px;
+  padding: 8px 6px;
+  border-radius: var(--r-md);
+  border: var(--line);
+  background: var(--white);
+  color: var(--ink);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  transition:
+    background-color 180ms var(--ease-calm),
+    transform 180ms var(--ease-calm);
+}
+.export-act svg {
+  width: 20px;
+  height: 20px;
+  color: var(--blue-600);
+}
+.export-act:hover:not(:disabled) {
+  background: var(--ash-50);
+}
+.export-act:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.export-act.is-primary {
+  border-color: transparent;
+  background: var(--sky-300);
+}
+.export-act.is-primary svg {
+  color: var(--ink);
+}
+.export-act.is-primary:hover:not(:disabled) {
+  background: #a9daf6;
+}
+.export-act:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .suggest-chip {
+    animation: none;
+  }
+}
+
+/* A chrome:// address to copy: web pages can't link to them. */
+code.flag {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--ash-50);
+  color: var(--ink);
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+  user-select: all;
 }

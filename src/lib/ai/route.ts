@@ -18,7 +18,7 @@ export type DeviceModel = 'available' | 'downloadable' | 'downloading' | 'unavai
 /** Settings: where AI runs by default. */
 export type Preference = 'auto' | 'cloud-first' | 'device-only';
 
-export type TaskKind = 'transcribe' | 'clarify' | 'questions' | 'run' | 'chat' | 'summarize';
+export type TaskKind = 'transcribe' | 'clarify' | 'questions' | 'run' | 'chat' | 'summarize' | 'suggest' | 'export';
 
 export type Destination = 'device' | 'cloud';
 

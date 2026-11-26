@@ -121,8 +121,18 @@ export function StatusSheet({ open, onClose }: { open: boolean; onClose: () => v
             </>
           )}
           {model === 'downloadable' && `Chrome can download it once (a few GB, needs ${reachable ? 'about 22 GB free disk' : 'a connection'}). After that it works offline.`}
-          {model === 'unavailable' && "This device doesn't meet Chrome's requirements for the built-in model (16 GB of RAM, or a GPU with more than 4 GB)."}
-          {model === 'unsupported' && 'This browser has no built-in model. Desktop Chrome has one; elsewhere AI runs in the cloud when you allow it.'}
+          {model === 'unavailable' && (
+            <>
+              This device doesn't meet Chrome's requirements for the built-in model (16 GB of RAM, or a GPU with more than 4 GB). Chrome shows the details at{' '}
+              <code className="flag">chrome://on-device-internals</code>.
+            </>
+          )}
+          {model === 'unsupported' && (
+            <>
+              This browser has no built-in model turned on. In desktop Chrome 139 or later, open <code className="flag">chrome://flags/#prompt-api-for-gemini-nano-multimodal-input</code>, set it to
+              Enabled (and “Gemma 4 for built-in AI” too, if listed), then restart Chrome. Elsewhere, AI runs in the cloud when you allow it.
+            </>
+          )}
         </Line>
 
         <Line

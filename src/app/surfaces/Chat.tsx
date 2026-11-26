@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUp, Copy, FileText, Lock, Mic, RotateCcw, Square, Trash2, Cloud, Smartphone } from 'lucide-react';
+import { ArrowUp, ClipboardList, Copy, FileDown, FileText, Lock, Mic, RotateCcw, Share2, Square, Trash2, Cloud, Smartphone, UserRound, Users } from 'lucide-react';
 import type { Content } from 'firebase/ai';
 import { SurfaceBar, useSurface } from '../ui/Surface';
 import { afterMotion } from '../ui/genie';
@@ -15,8 +15,10 @@ import { SourceBadge, LocalOnlyBadge } from '../ui/Badge';
 import { Markdown } from '../ui/Markdown';
 import { db, deleteChat, titleFrom, uid, type Message } from '../../lib/db';
 import { packHistory } from '../../lib/ai/prompts';
-import { streamText, toUserError, transcribe } from '../../lib/ai/engine';
-import type { Route } from '../../lib/ai/route';
+import { streamText, suggestFollowUps, toUserError, transcribe } from '../../lib/ai/engine';
+import { decideRoute, type Route } from '../../lib/ai/route';
+import type { ExportStyle } from '../../lib/ai/prompts';
+import { ExportSheet } from '../ExportSheet';
 import { useRoute } from '../useRoute';
 import { getStatus, useStatus } from '../../lib/status';
 import { takeRun } from '../runs';
@@ -40,6 +42,8 @@ export function ChatSurface({ id }: { id: string }) {
   const [error, setError] = useState<{ message: string; route: Route } | null>(null);
   const [askDelete, setAskDelete] = useState(false);
   const [localOnlyNew, setLocalOnlyNew] = useState(false);
+  const [exporting, setExporting] = useState<ExportStyle | null>(null);
+  const [lastExport, setLastExport] = useState<ExportStyle>('raw');
   const abort = useRef<AbortController | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -53,6 +57,35 @@ export function ChatSurface({ id }: { id: string }) {
   }, []);
 
   const scrollDown = () => requestAnimationFrame(() => scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }));
+
+  /**
+   * After an answer: two or three follow-ups to tap, from the same hybrid AI (on this device
+   * when it can), using only the last exchange. Optional, so any failure is quiet. Off in Settings.
+   */
+  const suggestAfter = useCallback(async (cid: string, messageId: string, question: string, answer: string) => {
+    const settings = await readSettings();
+    if (!settings.suggestFollowUps || !question.trim() || !answer.trim()) return;
+    const st = getStatus();
+    const chatRow = await db.chats.get(cid);
+    const r = decideRoute({
+      task: 'suggest',
+      online: st.online,
+      workOffline: settings.workOffline,
+      device: st.device,
+      preference: settings.preference,
+      localOnly: chatRow?.localOnly ?? false,
+      inputChars: Math.min(question.length, 600) + Math.min(answer.length, 2400) + 500,
+      deviceCharBudget: st.runtime.deviceCharBudget,
+      cloudConfigured: st.configured,
+    });
+    if (!r.ok) return;
+    try {
+      const { suggestions } = await suggestFollowUps(question, answer, { route: r, itemId: cid });
+      if (suggestions.length) await db.messages.update(messageId, { suggestions });
+    } catch {
+      // Suggestions are a convenience: no error for the person to deal with.
+    }
+  }, []);
 
   const run = useCallback(
     async (cid: string, r: Route) => {
@@ -79,8 +112,11 @@ export function ChatSurface({ id }: { id: string }) {
           },
         });
         const now = Date.now();
-        await db.messages.add({ id: uid(), chatId: cid, role: 'model', text: res.text, createdAt: now, source: res.source, model: res.model, ms: res.ms, status: 'done', fellBackFrom: res.fellBackFrom });
+        const answerId = uid();
+        await db.messages.add({ id: answerId, chatId: cid, role: 'model', text: res.text, createdAt: now, source: res.source, model: res.model, ms: res.ms, status: 'done', fellBackFrom: res.fellBackFrom });
         await db.chats.update(cid, { updatedAt: now });
+        const lastQuestion = [...all].reverse().find((m) => m.role === 'user')?.text ?? '';
+        void suggestAfter(cid, answerId, lastQuestion, res.text);
       } catch (err) {
         const e = toUserError(err);
         if (e.code === 'cancelled') {
@@ -94,7 +130,7 @@ export function ChatSurface({ id }: { id: string }) {
         scrollDown();
       }
     },
-    [toast],
+    [toast, suggestAfter],
   );
 
   // A run confirmed in the send preview starts here, exactly once.
@@ -107,6 +143,15 @@ export function ChatSurface({ id }: { id: string }) {
   useEffect(() => {
     scrollDown();
   }, [messages?.length]);
+
+  // Suggestions arrive a moment after the answer: bring them into view, unless the person has
+  // scrolled up to read.
+  const suggestionCount = messages?.length ? (messages[messages.length - 1].suggestions?.length ?? 0) : 0;
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !suggestionCount) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 180) scrollDown();
+  }, [suggestionCount]);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -147,6 +192,23 @@ export function ChatSurface({ id }: { id: string }) {
   };
 
   const lastUserWaiting = messages && messages.length > 0 && messages[messages.length - 1].role === 'user' && !streaming;
+  const lastAnswer = messages && messages.length > 0 && messages[messages.length - 1].role === 'model' ? messages[messages.length - 1] : null;
+
+  /** A suggestion goes into the box, ready to edit or send; nothing is sent for you. */
+  const takeSuggestion = (text: string) => {
+    setDraftText(text);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(text.length, text.length);
+    });
+  };
+
+  const openExport = (st: ExportStyle) => {
+    setLastExport(st);
+    setExporting(st);
+  };
 
   return (
     <div className="tool tool-chat">
@@ -161,7 +223,21 @@ export function ChatSurface({ id }: { id: string }) {
         menu={[
           { key: 'local', label: 'Keep on this device only', hint: 'Never use the cloud for this chat', icon: <Lock />, checked: localOnly, onSelect: () => void setLocal(!localOnly) },
           ...(chat?.draftId ? [{ key: 'draft', label: 'Open the draft', icon: <FileText />, onSelect: () => replace({ kind: 'draft', id: chat.draftId! }) }] : []),
-          { key: 'copy', label: 'Copy conversation', icon: <Copy />, disabled: !messages?.length, onSelect: () => void copyAll() },
+          {
+            key: 'export',
+            label: 'Export conversation',
+            hint: 'PDF, Markdown, or rewritten for someone',
+            icon: <Share2 />,
+            disabled: !messages?.length,
+            onSelect: () => openExport('raw'),
+            children: [
+              { key: 'x-raw', label: 'As it was', hint: 'Every message, with where each answer ran', icon: <FileText />, onSelect: () => openExport('raw') },
+              { key: 'x-cofounder', label: 'For a cofounder', hint: 'Decisions, open questions, next steps', icon: <Users />, onSelect: () => openExport('cofounder') },
+              { key: 'x-teammate', label: 'For a teammate', hint: 'A hand-off note with what they need to do', icon: <UserRound />, onSelect: () => openExport('teammate') },
+              { key: 'x-meeting', label: 'Meeting notes', hint: 'Summary, decisions and action items', icon: <ClipboardList />, onSelect: () => openExport('meeting') },
+              { key: 'x-copy', label: 'Copy as text', icon: <Copy />, divided: true, onSelect: () => void copyAll() },
+            ],
+          },
           { key: 'delete', label: 'Delete chat', icon: <Trash2 />, divided: true, disabled: !chatId, onSelect: () => setAskDelete(true) },
         ]}
       />
@@ -216,6 +292,19 @@ export function ChatSurface({ id }: { id: string }) {
             </li>
           ) : null}
         </ol>
+        {lastAnswer && !streaming && !error ? (
+          <div className="suggest" role="group" aria-label="Suggestions">
+            {(lastAnswer.suggestions ?? []).map((text, i) => (
+              <button key={text} type="button" className="suggest-chip" style={{ ['--i' as string]: i }} onClick={() => takeSuggestion(text)}>
+                {text}
+              </button>
+            ))}
+            <button type="button" className="suggest-chip is-export" onClick={() => openExport('raw')}>
+              <FileDown aria-hidden />
+              Export this conversation
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div className="retry" role="alert">
             <p>{error.message}</p>
@@ -272,6 +361,16 @@ export function ChatSurface({ id }: { id: string }) {
           )}
         </div>
       </footer>
+
+      <ExportSheet
+        open={exporting !== null}
+        onClose={() => setExporting(null)}
+        initial={exporting ?? lastExport}
+        title={chat?.title ?? 'Conversation'}
+        messages={messages ?? []}
+        localOnly={localOnly}
+        chatId={chatId}
+      />
 
       <Confirm
         open={askDelete}

@@ -128,6 +128,12 @@ export function SettingsSurface() {
             checked={settings.autoTranscribe}
             onChange={(v) => void setSetting('autoTranscribe', v)}
           />
+          <Toggle
+            label="Suggest follow-ups"
+            hint="After each answer, suggest what to ask next, using the same AI that answered (on this device when it can). Tap one to put it in the box."
+            checked={settings.suggestFollowUps}
+            onChange={(v) => void setSetting('suggestFollowUps', v)}
+          />
           <Toggle label="Work offline" hint="Use no network at all, even when connected. Good for flights, or for testing." checked={settings.workOffline} onChange={(v) => void setSetting('workOffline', v)} />
         </Group>
 

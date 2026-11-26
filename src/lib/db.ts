@@ -79,6 +79,8 @@ export interface Message {
   status: 'done' | 'error';
   error?: string;
   fellBackFrom?: Destination;
+  /** Follow-ups suggested after this answer (tap to fill the box). */
+  suggestions?: string[];
 }
 
 export interface Note {
@@ -129,6 +131,8 @@ export interface Settings {
   speechLang: string;
   lock: LockConfig;
   onboarded: boolean;
+  /** Suggest what to ask next after each answer, with the same AI that answered. */
+  suggestFollowUps: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -145,6 +149,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speechLang: 'en-US',
   lock: { method: 'none', autoLockMinutes: 5 },
   onboarded: false,
+  suggestFollowUps: true,
 };
 
 interface SettingRow {

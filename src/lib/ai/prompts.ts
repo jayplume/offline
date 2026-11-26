@@ -191,3 +191,119 @@ export function packHistory<T extends { role: 'user' | 'model'; text: string }>(
   while (out.length && out[0].role !== 'user') out.shift();
   return out;
 }
+
+// ─── Follow-up suggestions ─────────────────────────────────────────────────────
+
+/** The last exchange, trimmed so the request stays small enough for the on-device model. */
+export function suggestionsPrompt(question: string, answer: string): string {
+  const q = question.trim().slice(0, 600);
+  const a = answer.trim().length > 2400 ? `${answer.trim().slice(0, 2400)}…` : answer.trim();
+  return [
+    'Below is the last message someone sent an AI assistant, and the answer they got.',
+    'Suggest 2 or 3 follow-up messages they are likely to send next.',
+    'Write each one in their voice, as they would type it: under 9 words, specific to this answer, no numbering, no quotes.',
+    'Do not suggest exporting, saving or sharing.',
+    '',
+    'Their message:',
+    '"""',
+    q,
+    '"""',
+    '',
+    'The answer:',
+    '"""',
+    a,
+    '"""',
+  ].join('\n');
+}
+
+/** Shared by both paths: cloud responseJsonSchema and on-device responseConstraint. */
+export const SUGGESTIONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    suggestions: {
+      type: 'array',
+      items: { type: 'string' },
+      maxItems: 3,
+    },
+  },
+  required: ['suggestions'],
+} as const;
+
+export function parseSuggestions(raw: string): string[] {
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+  let list: unknown[] = [];
+  try {
+    const parsed = JSON.parse(cleaned) as { suggestions?: unknown };
+    if (Array.isArray(parsed.suggestions)) list = parsed.suggestions;
+  } catch {
+    list = cleaned.split('\n');
+  }
+  const seen = new Set<string>();
+  return list
+    .filter((x): x is string => typeof x === 'string')
+    .map((x) => x.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^["“']+|["”']+$/g, '').trim())
+    .filter((x) => x.length > 1 && x.length <= 90 && !/export|download|pdf/i.test(x))
+    .filter((x) => {
+      const k = x.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, 3);
+}
+
+// ─── Export ────────────────────────────────────────────────────────────────────
+
+export type ExportStyle = 'raw' | 'cofounder' | 'teammate' | 'meeting';
+
+export const EXPORT_STYLES: Record<ExportStyle, { label: string; hint: string; brief?: string }> = {
+  raw: { label: 'Raw conversation', hint: 'Every message as it was, with where each answer ran.' },
+  cofounder: {
+    label: 'For a cofounder',
+    hint: 'A brief: the problem, what you worked out, decisions, open questions, next steps.',
+    brief:
+      'a brief for a cofounder. Use these sections: Context, What we worked out, Decisions, Open questions, Next steps. Be direct and concrete, under 300 words.',
+  },
+  teammate: {
+    label: 'For a teammate',
+    hint: 'A hand-off note: context, what is decided, and what they need to do.',
+    brief:
+      'a hand-off note to a teammate who was not in the conversation. Use these sections: Context, What is decided, What I need from you, Useful details. Friendly and clear, under 250 words.',
+  },
+  meeting: {
+    label: 'Meeting notes',
+    hint: 'Summary, decisions and action items, ready to send after a meeting.',
+    brief:
+      'meeting notes. Use these sections: Summary (two or three sentences), Decisions, Action items (a checklist, each with an [owner] placeholder), Open questions. Under 300 words.',
+  },
+};
+
+/** Asks for a styled write-up of a conversation (already trimmed to fit the route). */
+export function exportPrompt(style: Exclude<ExportStyle, 'raw'>, conversation: string, trimmed: boolean): string {
+  return [
+    `Rewrite the conversation below as ${EXPORT_STYLES[style].brief}`,
+    'Use Markdown: ## for section headings and - for bullets. Start with the first heading; no title line and no preamble.',
+    'Use only what is in the conversation. Do not invent names, numbers or dates.',
+    trimmed ? 'The start of the conversation was left out to keep it short; work from what is here.' : '',
+    '',
+    'Conversation:',
+    '"""',
+    conversation,
+    '"""',
+  ]
+    .filter((l, i) => l || i > 3)
+    .join('\n');
+}
+
+/** "You:/AI:" transcript of the newest messages that fit in `budget` characters. */
+export function conversationText(turns: { role: 'user' | 'model'; text: string }[], budget: number): { text: string; trimmed: boolean } {
+  const lines: string[] = [];
+  let used = 0;
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const line = `${turns[i].role === 'user' ? 'You' : 'AI'}: ${turns[i].text.trim()}`;
+    if (used + line.length + 2 > budget && lines.length) return { text: lines.reverse().join('\n\n'), trimmed: true };
+    lines.push(line.length > budget ? `${line.slice(0, budget - 1)}…` : line);
+    used += line.length + 2;
+  }
+  return { text: lines.reverse().join('\n\n'), trimmed: false };
+}

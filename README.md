@@ -30,6 +30,8 @@ The thought arrives anyway. Offline catches it privately, keeps it on the device
 | **Shape** | Edit, *Make it clearer*, *Ask me what's missing*, templates, tone, length, a "What I meant" note. Every rewrite is a version, and the original is never overwritten. | Hybrid: on the device when Gemini Nano is ready, otherwise the cloud |
 | **Send** | A preview shows the exact text and where it will run. Then the answer streams in, labelled **On this device** or **Cloud**. | Hybrid |
 | **Notes** | One tap to a blank page. Summaries are hybrid; long local-only notes are summarized in parts *on the device*. | Hybrid |
+| **Follow up** | After each answer, two or three suggested follow-ups pop up as bubbles. Tap one and it goes into the box to edit; nothing is sent for you. Uses only the last exchange; off in Settings. | Hybrid (structured output on both paths) |
+| **Export** | An *Export this conversation* bubble is always there, and the same choices sit in the chat's ⋯ menu: as it was, for a cofounder, for a teammate, or meeting notes. Save as PDF or Markdown, copy, or share to another app. | Rewrites are hybrid; files are made on the device |
 
 ## How it uses Firebase AI Logic hybrid inference
 
@@ -64,6 +66,8 @@ Other Firebase products:
 **Without a connection:** on-device live captions · audio-only drafts · a live "What works right now" sheet · on-device model status and one-tap download · prompt clean-up on the device · nothing sends itself on reconnect (and the app says so) · retry on every failed step.
 
 **Shaping:** editable transcript · tap a sentence to hear it · "What I meant" note · templates from Remote Config · Make it clearer · Ask me what's missing · tone and length · versions with a word-level compare · send preview with the exact text and destination.
+
+**Added since:** follow-up suggestions after each answer, and export (as it was, for a cofounder, for a teammate, or meeting notes; PDF, Markdown, copy or share).
 
 **Privacy and control:** On this device / Cloud label on every AI result · delete the audio, the text, or everything · automatic audio deletion · app lock (WebAuthn device unlock or PIN) · asks before playing aloud without headphones · "Keep on this device only" per draft, chat or note · History of every AI request.
 
@@ -105,11 +109,15 @@ pnpm install
 
 ### On-device AI in Chrome
 
-On-device AI needs desktop Chrome with the built-in Prompt API (Gemini Nano) on hardware that meets Chrome's requirements: 16 GB of RAM or a GPU with more than 4 GB of VRAM, and about 22 GB of free disk for the one-time model download. Open the app and tap the status chip (top right). **What works right now** shows whether the model is available, downloadable (with a Download button), or unavailable on this device.
+On-device AI needs desktop Chrome 139 or later with the built-in Prompt API, on hardware that meets Chrome's requirements: 16 GB of RAM or a GPU with more than 4 GB of VRAM, and about 22 GB of free disk for the one-time model download.
+
+1. Open `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input` and set it to **Enabled** (Firebase's hybrid guide asks for this flag). If **Gemma 4 for built-in AI** is listed, enable it too: the Firebase team suggested it for the newer model, and also confirmed that Chrome's current Nano model counts when it is used through Firebase AI Logic.
+2. Restart Chrome. `chrome://on-device-internals` shows which model Chrome has.
+3. Open the app and tap the status chip (top right). **What works right now** shows whether the model is available, downloadable (with a Download button), or unavailable on this device.
 
 ## Tests
 
-- `pnpm test`: 32 unit tests for the routing policy, prompt assembly, history packing, transcript timing, WAV encoding, text helpers and the genie's geometry (slices meet exactly, never fold, and land on the page).
+- `pnpm test`: 40 unit tests for the routing policy, prompt assembly, history packing, transcript timing, WAV encoding, text helpers, follow-up parsing, exports, and the genie's geometry (slices meet exactly, never fold, and land on the page).
 - `tests/e2e/record.mjs`: records through MediaRecorder (fed by a Web Audio "microphone"), saves to IndexedDB, transcribes through Firebase AI Logic and checks the timed sentences.
 - `tests/e2e/on-device.mjs`: drives Firebase AI Logic's Chrome adapter with a stand-in `LanguageModel`. It checks that on-device answers report `inferenceSource: on_device`, that **Work offline** makes zero requests to Firebase AI Logic, and that a device failure falls back to the cloud with the right label.
 - `tests/e2e/offline-load.mjs`: after one visit, the live site opens and saves notes with the network switched off.
@@ -131,6 +139,7 @@ src/lib/firebase.ts      App, App Check, AI, Remote Config
 src/lib/db.ts            IndexedDB (Dexie): drafts, audio, chats, notes, history, settings
 src/lib/audio/*          recorder, WAV encoding
 src/lib/speech.ts        on-device live captions (Web Speech API, processLocally only)
+src/lib/export.ts        exports: Markdown, PDF through the print dialog, files and the share sheet
 src/app/*                the app: surfaces, sheets, menus
 src/app/ui/genie.ts      the genie: every page, sheet and menu pours out of the control you tapped
 src/landing/*            the site at /

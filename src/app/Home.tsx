@@ -97,10 +97,10 @@ export function Home({ onLock }: { onLock: () => void }) {
         <Menu items={menu} label="Menu">
           <MoreHorizontal aria-hidden />
         </Menu>
-        <span className="wordmark" aria-label="Offline">
+        <a className="wordmark" href="/" aria-label="Offline: about this app">
           <LogoMark />
           Offline
-        </span>
+        </a>
         <button type="button" className={`status-chip${effectiveOffline ? ' is-off' : ''}`} onClick={() => setStatusOpen(true)}>
           {effectiveOffline ? <WifiOff aria-hidden /> : <Cloud aria-hidden />}
           <span>{settings.workOffline ? 'Working offline' : status.online ? 'Connected' : 'No connection'}</span>

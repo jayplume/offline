@@ -34,7 +34,20 @@ export function Markdown({ text }: { text: string }) {
   };
   const flushList = () => {
     if (!list) return;
-    const items = list.items.map((it, i) => <li key={i}>{inline(it, `l${blocks.length}-${i}`)}</li>);
+    const items = list.items.map((it, i) => {
+      // "- [ ] Do the thing" (a checklist item, as in meeting notes)
+      const box = it.match(/^\[( |x|X)\]\s+(.*)$/);
+      return (
+        <li key={i} className={box ? 'md-task' : undefined}>
+          {box ? (
+            <span className="md-check" aria-hidden>
+              {box[1] === ' ' ? '☐' : '☑'}
+            </span>
+          ) : null}
+          {inline(box ? box[2] : it, `l${blocks.length}-${i}`)}
+        </li>
+      );
+    });
     blocks.push(list.ordered ? <ol key={`o${blocks.length}`}>{items}</ol> : <ul key={`u${blocks.length}`}>{items}</ul>);
     list = null;
   };

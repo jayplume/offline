@@ -24,15 +24,24 @@ import { logRun } from '../db';
 import type { DeviceModel, Destination, Mode, Route, TaskKind } from './route';
 import {
   QUESTIONS_SCHEMA,
+  SUGGESTIONS_SCHEMA,
   SYSTEM_PROMPT,
   TRANSCRIBE_PROMPT,
   TRANSCRIPT_SCHEMA,
   combineSummariesPrompt,
   parseQuestions,
+  parseSuggestions,
+  suggestionsPrompt,
   summarizePrompt,
 } from './prompts';
 
-type Kind = 'text' | 'questions' | 'transcribe';
+type Kind = 'text' | 'questions' | 'suggest' | 'transcribe';
+
+/** Structured-output kinds: one JSON schema, used as the cloud responseJsonSchema and the on-device responseConstraint. */
+const JSON_SCHEMAS: Partial<Record<Kind, Record<string, unknown>>> = {
+  questions: QUESTIONS_SCHEMA as unknown as Record<string, unknown>,
+  suggest: SUGGESTIONS_SCHEMA as unknown as Record<string, unknown>,
+};
 
 export interface AIResult {
   text: string;
@@ -74,10 +83,9 @@ function getModel(kind: Kind, mode: Mode): GenerativeModel {
   const inCloudParams: ModelParams = {
     model: cloudModel,
     systemInstruction: kind === 'transcribe' ? undefined : SYSTEM_PROMPT,
-    generationConfig:
-      kind === 'questions'
-        ? { responseMimeType: 'application/json', responseJsonSchema: QUESTIONS_SCHEMA as unknown as Record<string, unknown>, temperature: 0.2 }
-        : kind === 'transcribe'
+    generationConfig: JSON_SCHEMAS[kind]
+      ? { responseMimeType: 'application/json', responseJsonSchema: JSON_SCHEMAS[kind], temperature: kind === 'suggest' ? 0.5 : 0.2 }
+      : kind === 'transcribe'
           ? { responseMimeType: 'application/json', responseJsonSchema: TRANSCRIPT_SCHEMA as unknown as Record<string, unknown>, temperature: 0 }
           : { temperature: 0.6 },
   };
@@ -86,7 +94,7 @@ function getModel(kind: Kind, mode: Mode): GenerativeModel {
     inCloudParams,
     onDeviceParams: {
       createOptions: deviceCreateOptions(),
-      promptOptions: kind === 'questions' ? { responseConstraint: QUESTIONS_SCHEMA as unknown as Record<string, unknown> } : undefined,
+      promptOptions: JSON_SCHEMAS[kind] ? { responseConstraint: JSON_SCHEMAS[kind] } : undefined,
     },
   });
   cache.set(key, model);
@@ -228,6 +236,12 @@ export async function streamText(contents: Content[], o: RunOptions & { onText: 
 export async function findMissingDetails(prompt: string, o: Omit<RunOptions, 'kind' | 'task'>): Promise<{ questions: string[]; result: AIResult }> {
   const result = await runText(prompt, { ...o, task: 'questions', kind: 'questions' });
   return { questions: parseQuestions(result.text), result };
+}
+
+/** Two or three follow-ups the person might send next, from the last exchange only. */
+export async function suggestFollowUps(question: string, answer: string, o: Omit<RunOptions, 'kind' | 'task'>): Promise<{ suggestions: string[]; result: AIResult }> {
+  const result = await runText(suggestionsPrompt(question, answer), { ...o, task: 'suggest', kind: 'suggest' });
+  return { suggestions: parseSuggestions(result.text), result };
 }
 
 /**

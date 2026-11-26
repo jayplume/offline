@@ -15,6 +15,8 @@ const TASK: Record<Run['kind'], string> = {
   run: 'Ran a prompt',
   chat: 'Answered in a chat',
   summarize: 'Summarized a note',
+  suggest: 'Suggested follow-ups',
+  export: 'Wrote an export',
 };
 
 const MODE: Record<Run['requestedMode'], string> = {

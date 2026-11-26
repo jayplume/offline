@@ -1,10 +1,12 @@
 /** Quiet confirmations at the bottom of the screen ("Saved on this device"). */
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 
 interface ToastItem {
   id: number;
   text: string;
-  action?: { label: string; run: () => void };
+  /** `sticky` keeps the toast until it is acted on or dismissed (e.g. a waiting update). */
+  action?: { label: string; run: () => void; sticky?: boolean };
 }
 
 const Ctx = createContext<(text: string, action?: ToastItem['action']) => void>(() => {});
@@ -19,7 +21,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback((text: string, action?: ToastItem['action']) => {
     const id = next.current++;
     setItems((p) => [...p.slice(-2), { id, text, action }]);
-    window.setTimeout(() => setItems((p) => p.filter((t) => t.id !== id)), action ? 6000 : 3200);
+    if (!action?.sticky) window.setTimeout(() => setItems((p) => p.filter((t) => t.id !== id)), action ? 6000 : 3200);
   }, []);
   return (
     <Ctx.Provider value={show}>
@@ -38,6 +40,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 }}
               >
                 {t.action.label}
+              </button>
+            ) : null}
+            {t.action?.sticky ? (
+              <button type="button" className="toast-x" aria-label="Dismiss" onClick={() => setItems((p) => p.filter((x) => x.id !== t.id))}>
+                <X aria-hidden />
               </button>
             ) : null}
           </div>

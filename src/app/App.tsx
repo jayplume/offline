@@ -205,6 +205,7 @@ function Welcome({ open, onDone }: { open: boolean; onDone: () => void }) {
 
 function UpdatePrompt() {
   const toast = useToast();
+  const loadedAt = useRef(performance.now());
   const {
     needRefresh: [needRefresh],
     offlineReady: [offlineReady],
@@ -214,7 +215,26 @@ function UpdatePrompt() {
     if (offlineReady) toast('Offline is ready to open without a connection');
   }, [offlineReady, toast]);
   useEffect(() => {
-    if (needRefresh) toast('A new version of Offline is ready', { label: 'Reload', run: () => void updateServiceWorker(true) });
+    if (!needRefresh) return;
+    // Found right after opening, with nothing open yet: switch to the new version now, so nobody
+    // keeps an old build by missing a message. Later on, never interrupt: ask, and keep asking.
+    const KEY = 'offline:auto-updated';
+    let recent = false;
+    try {
+      recent = Date.now() - Number(sessionStorage.getItem(KEY) ?? 0) < 30_000;
+    } catch {
+      recent = true; // No session storage: never risk a reload loop, just ask.
+    }
+    if (!recent && performance.now() - loadedAt.current < 8000 && !document.querySelector('#root .surface-layer, .sheet-root')) {
+      try {
+        sessionStorage.setItem(KEY, String(Date.now()));
+      } catch {
+        /* see above */
+      }
+      void updateServiceWorker(true);
+      return;
+    }
+    toast('A new version of Offline is ready', { label: 'Reload', run: () => void updateServiceWorker(true), sticky: true });
   }, [needRefresh, toast, updateServiceWorker]);
   return null;
 }
