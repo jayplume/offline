@@ -669,6 +669,12 @@ html.surface-open body {
   font-size: var(--t-small);
   color: var(--ash-500);
 }
+.slow-start {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  animation: rise 360ms var(--ease-calm) both;
+}
 .silence-note {
   display: flex;
   align-items: center;

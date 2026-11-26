@@ -63,6 +63,18 @@ const stored = await page.evaluate(async () => {
   return { drafts: drafts.map((d) => ({ title: d.title, hasAudio: d.hasAudio, durationMs: d.durationMs, mime: d.audioMime, recordingActive: d.recordingActive })), audioBytes: audio.map((a) => a.blob.size) };
 });
 log('stored on device:', JSON.stringify(stored));
+// Chrome's MediaRecorder WebM has no duration in its header (the reason AudioCard forces a scan).
+const durations = await page.evaluate(async () => {
+  const req = indexedDB.open('offline');
+  const dbh = await new Promise((r) => (req.onsuccess = () => r(req.result)));
+  const blob = await new Promise((r) => { const q = dbh.transaction('audio').objectStore('audio').getAll(); q.onsuccess = () => r(q.result[0].blob); });
+  const a = new Audio(URL.createObjectURL(blob));
+  await new Promise((r) => a.addEventListener('loadedmetadata', r, { once: true }));
+  const before = a.duration;
+  await new Promise((r) => { a.addEventListener('durationchange', r, { once: true }); a.currentTime = 1e101; });
+  return { reportedOnLoad: String(before), afterScan: a.duration };
+});
+log('webm duration:', JSON.stringify(durations));
 await page.getByRole('button', { name: 'Transcribe with Gemini' }).click();
 await page.waitForSelector('.editor-text', { timeout: 90000 });
 log('transcript:', JSON.stringify(await page.locator('.editor-text').inputValue()));

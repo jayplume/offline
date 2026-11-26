@@ -39,6 +39,8 @@ export class Recorder {
   private pausedAt = 0;
   private pausedTotal = 0;
   private stopResolve: ((r: RecordingResult) => void) | null = null;
+  /** Set by cancel(); a permission prompt answered later must not start a hidden recording. */
+  private cancelled = false;
 
   /** Called with every chunk so far, roughly once a second, for crash-safe checkpoints. */
   onChunk: ((all: Blob[], elapsedMs: number) => void) | null = null;
@@ -47,8 +49,9 @@ export class Recorder {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       throw new MicError("This browser can't record audio.", 'unsupported');
     }
+    let stream: MediaStream;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
           echoCancellation: true,
@@ -70,6 +73,12 @@ export class Recorder {
       }
       throw new MicError(`The microphone could not start (${name || 'unknown error'}).`, 'unknown');
     }
+    if (this.cancelled) {
+      // The person left before the microphone opened (e.g. chose to type). Close it at once.
+      stream.getTracks().forEach((t) => t.stop());
+      throw new MicError('Recording was cancelled before the microphone opened.', 'unknown');
+    }
+    this.stream = stream;
     this.mimeType = pickMimeType();
     this.mr = new MediaRecorder(this.stream, this.mimeType ? { mimeType: this.mimeType, audioBitsPerSecond: 48_000 } : undefined);
     this.mimeType = this.mr.mimeType || this.mimeType || 'audio/webm';
@@ -158,6 +167,7 @@ export class Recorder {
 
   /** Stops and throws the audio away. */
   cancel(): void {
+    this.cancelled = true;
     this.onChunk = null;
     this.stopResolve = null;
     try {

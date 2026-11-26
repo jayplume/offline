@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   AudioLines,
@@ -41,7 +41,6 @@ export function Home({ onLock }: { onLock: () => void }) {
   const recordRef = useRef<HTMLButtonElement>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   const [lowStorageAsk, setLowStorageAsk] = useState(false);
-  const [backOnline, setBackOnline] = useState(false);
   const [pressed, setPressed] = useState(false);
 
   const drafts = useLiveQuery(() => db.drafts.orderBy('updatedAt').reverse().toArray(), []);
@@ -58,19 +57,7 @@ export function Home({ onLock }: { onLock: () => void }) {
     return items.sort((a, b) => b.item.updatedAt - a.item.updatedAt).slice(0, 5);
   }, [chats, notes]);
 
-  // Reconnecting never sends anything; say so, so nobody has to wonder.
-  const wasOnline = useRef(status.online);
-  useEffect(() => {
-    if (!wasOnline.current && status.online && waitingCount > 0) {
-      setBackOnline(true);
-      const t = window.setTimeout(() => setBackOnline(false), 12_000);
-      return () => window.clearTimeout(t);
-    }
-    wasOnline.current = status.online;
-  }, [status.online, waitingCount]);
-  useEffect(() => {
-    wasOnline.current = status.online;
-  }, [status.online]);
+  // The "back online, nothing was sent" reassurance is a toast in App, so it shows on every screen.
 
   const startRecording = () => {
     setPressed(true);
@@ -121,17 +108,6 @@ export function Home({ onLock }: { onLock: () => void }) {
         </button>
       </header>
 
-      {backOnline ? (
-        <div className="banner" role="status">
-          <Cloud aria-hidden />
-          <span>
-            You're back online. {waitingCount === 1 ? '1 draft is' : `${waitingCount} drafts are`} waiting, and nothing has been sent.
-          </span>
-          <button type="button" className="banner-x" onClick={() => setBackOnline(false)} aria-label="Dismiss">
-            ×
-          </button>
-        </div>
-      ) : null}
 
       <section className="home-hero" aria-labelledby="home-q">
         <p className="home-hello">{greeting()}</p>

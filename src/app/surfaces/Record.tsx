@@ -31,6 +31,8 @@ export function RecordSurface() {
   const lastCheckpoint = useRef(0);
   const silentSince = useRef<number | null>(null);
   const heardSpeech = useRef(false);
+  /** False once this surface is gone, so late async steps can never leave a recording running. */
+  const alive = useRef(true);
 
   const [phase, setPhase] = useState<Phase>('starting');
   const [error, setError] = useState<MicError | null>(null);
@@ -41,6 +43,17 @@ export function RecordSurface() {
   const [localOnly, setLocalOnly] = useState(false);
   const [mic, setMic] = useState('');
   const [silenceOn, setSilenceOn] = useState(0);
+  const [slowStart, setSlowStart] = useState(false);
+
+  // getUserMedia can wait indefinitely on a browser or system permission prompt; say what is happening.
+  useEffect(() => {
+    if (phase !== 'starting') {
+      setSlowStart(false);
+      return;
+    }
+    const t = window.setTimeout(() => setSlowStart(true), 5000);
+    return () => window.clearTimeout(t);
+  }, [phase]);
 
   const stopLoop = () => cancelAnimationFrame(raf.current);
 
@@ -97,13 +110,23 @@ export function RecordSurface() {
     try {
       await rec.start(settings.micDeviceId || undefined);
     } catch (err) {
-      recorder.current = null;
+      if (recorder.current === rec) recorder.current = null;
+      if (!alive.current) return;
       setError(err instanceof MicError ? err : new MicError('The microphone could not start.', 'unknown'));
       setPhase('error');
       return;
     }
+    if (!alive.current || recorder.current !== rec) {
+      rec.cancel();
+      return;
+    }
     setMic(rec.deviceLabel);
     const draft = await createDraft({ localOnly: settings.defaultLocalOnly, recordingActive: true, title: 'Recording…' });
+    if (!alive.current || recorder.current !== rec) {
+      rec.cancel();
+      await db.drafts.delete(draft.id);
+      return;
+    }
     draftId.current = draft.id;
     // Crash-safe: write what we have every few seconds.
     rec.onChunk = (chunks, elapsed) => {
@@ -128,8 +151,10 @@ export function RecordSurface() {
   }, [loop]);
 
   useEffect(() => {
+    alive.current = true;
     void begin();
     return () => {
+      alive.current = false;
       stopLoop();
       // Leaving without Stop (e.g. the app closed): keep what was recorded as a draft.
       if (recorder.current && recorder.current.state !== 'stopped') {
@@ -223,6 +248,9 @@ export function RecordSurface() {
   };
 
   const typeInstead = async () => {
+    // Stop any microphone request still waiting on a permission prompt.
+    recorder.current?.cancel();
+    recorder.current = null;
     const settings = settingsRef.current ?? (await readSettings());
     const draft = await createDraft({ localOnly: settings.defaultLocalOnly, title: 'Typed prompt' });
     replace({ kind: 'draft', id: draft.id, params: { focus: '1' } });
@@ -326,7 +354,14 @@ export function RecordSurface() {
             </div>
 
             <div className="record-caption-area" aria-live="polite">
-              {recent || caption?.interim ? (
+              {slowStart ? (
+                <div className="slow-start">
+                  <p className="caption-note">Waiting for the microphone. If your browser or computer is asking for permission, allow it.</p>
+                  <button type="button" className="btn btn-quiet btn-sm" onClick={() => void typeInstead()}>
+                    Type it instead
+                  </button>
+                </div>
+              ) : recent || caption?.interim ? (
                 <p className="live-caption">
                   {recent} <span className="interim">{caption?.interim}</span>
                 </p>

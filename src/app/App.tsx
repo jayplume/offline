@@ -14,8 +14,8 @@ import { LibrarySurface } from './surfaces/Library';
 import { HistorySurface } from './surfaces/History';
 import { SettingsSurface } from './surfaces/Settings';
 import { setSetting, useSettings } from './settings';
-import { applyAudioRetention, recoverInterruptedRecordings } from '../lib/db';
-import { setSpeechLang, startStatusWatch, refreshStatus } from '../lib/status';
+import { applyAudioRetention, db, recoverInterruptedRecordings } from '../lib/db';
+import { setSpeechLang, startStatusWatch, refreshStatus, useStatus } from '../lib/status';
 
 function render(spec: SurfaceSpec) {
   switch (spec.kind) {
@@ -71,6 +71,24 @@ function Shell() {
     const t = window.setInterval(() => void applyAudioRetention(settings.audioRetention), 10 * 60_000);
     return () => window.clearInterval(t);
   }, [ready, settings.speechLang, settings.audioRetention]);
+
+  // Reconnecting never sends anything. Say so wherever the person is, whenever the connection
+  // (or "Work offline") comes back and drafts are waiting.
+  const status = useStatus();
+  const connected = status.online && !settings.workOffline;
+  const wasConnected = useRef(connected);
+  useEffect(() => {
+    if (!ready) return;
+    if (!wasConnected.current && connected) {
+      void db.drafts
+        .filter((d) => !d.lastRunAt && !d.recordingActive)
+        .count()
+        .then((n) => {
+          if (n) toast(`Back online. ${n === 1 ? '1 draft is' : `${n} drafts are`} waiting, and nothing was sent.`);
+        });
+    }
+    wasConnected.current = connected;
+  }, [connected, ready, toast]);
 
   // App lock: on start, and after the chosen idle time or time away.
   useEffect(() => {
