@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Copy, Lock, ListCollapse, Sparkles, Trash2, X } from 'lucide-react';
 import { SurfaceBar, useSurface } from '../ui/Surface';
+import { afterMotion } from '../ui/genie';
 import { Confirm, Sheet } from '../ui/Sheet';
 import { useToast } from '../ui/Toast';
 import { SourceBadge, LocalOnlyBadge } from '../ui/Badge';
@@ -54,9 +55,8 @@ export function NoteSurface({ id }: { id: string }) {
   }, [note, loaded]);
 
   useEffect(() => {
-    // The page is ready to type the moment it appears.
-    const t = window.setTimeout(() => ref.current?.focus({ preventScroll: true }), 60);
-    return () => window.clearTimeout(t);
+    // Ready to type the moment it lands (focusing earlier would open a phone keyboard mid-motion).
+    return afterMotion(() => ref.current?.focus({ preventScroll: true }));
   }, []);
 
   const ensureNote = async (): Promise<string> => {

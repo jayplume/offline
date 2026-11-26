@@ -1,9 +1,11 @@
 /**
- * The three-dot options menu. Opens from the top-left corner with a short, calm scale-in.
+ * The three-dot options menu. Pours out of its button (the genie) and back into it.
+ * Choosing an item fades the menu instead, so the page that item opens has the stage.
  * Keyboard: arrows move, Enter selects, Escape closes and returns focus.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
+import { MOTION, boxOf, genie, reducedMotion, type Genie } from './genie';
 
 export interface MenuItem {
   key: string;
@@ -23,37 +25,36 @@ export function Menu({ items, label, children }: { items: MenuItem[]; label: str
   const listRef = useRef<HTMLDivElement>(null);
   const id = useId();
 
-  const closeMenu = (focusButton = true) => {
+  const run = useRef<Genie | null>(null);
+
+  const closeMenu = (focusButton = true, how: 'genie' | 'fade' = 'genie') => {
     const list = listRef.current;
+    const btn = btnRef.current;
     const finish = () => {
       setOpen(false);
       if (focusButton) btnRef.current?.focus();
     };
-    if (!list || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
-    list
-      .animate(
-        [
-          { opacity: 1, transform: 'none' },
-          { opacity: 0, transform: 'scale(0.96) translateY(-4px)' },
-        ],
-        { duration: 160, easing: 'ease-in', fill: 'forwards' },
-      )
-      .finished.then(finish, finish);
+    const at = run.current ? run.current.progress() : 1;
+    run.current?.cancel();
+    run.current = null;
+    if (!list) return finish();
+    if (how === 'genie' && btn && !reducedMotion()) {
+      // The copies finish the motion on their own; the live menu can go now.
+      genie(list, { from: boxOf(btn.getBoundingClientRect()), mode: 'close', duration: MOTION.menuClose, zIndex: 61, at });
+      return finish();
+    }
+    list.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 80 : 140, easing: 'ease-in', fill: 'forwards' }).finished.then(finish, finish);
   };
 
   useLayoutEffect(() => {
-    if (!open || !listRef.current) return;
+    if (!open || !listRef.current || !btnRef.current) return;
     const list = listRef.current;
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      list.animate(
-        [
-          { opacity: 0, transform: 'scale(0.94) translateY(-6px)' },
-          { opacity: 1, transform: 'none' },
-        ],
-        { duration: 260, easing: 'cubic-bezier(0.22, 0.8, 0.2, 1)' },
-      );
-    }
-    list.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    const g = genie(list, { from: boxOf(btnRef.current.getBoundingClientRect()), mode: 'open', duration: MOTION.menuOpen, zIndex: 61, ready: true });
+    run.current = g;
+    void g.finished.then(() => {
+      if (run.current === g) run.current = null;
+    });
+    list.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
   }, [open]);
 
   useEffect(() => {
@@ -121,8 +122,8 @@ export function Menu({ items, label, children }: { items: MenuItem[]; label: str
               disabled={it.disabled}
               className={`menu-item${it.divided ? ' is-divided' : ''}`}
               onClick={() => {
-                closeMenu(false);
-                // Let the menu finish closing before a sheet or surface opens on top.
+                closeMenu(false, 'fade');
+                // Let the menu fade before a sheet or page pours out of this spot.
                 window.setTimeout(it.onSelect, 120);
               }}
             >

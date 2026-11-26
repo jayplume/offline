@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Captions, Check, Lock, Mic, MicOff, Pause, Play, Square, Trash2, Timer } from 'lucide-react';
 import { SurfaceBar, useSurface } from '../ui/Surface';
+import { afterMotion } from '../ui/genie';
 import { Confirm } from '../ui/Sheet';
 import { useToast } from '../ui/Toast';
 import { MicError, Recorder } from '../../lib/audio/recorder';
@@ -33,6 +34,7 @@ export function RecordSurface() {
   const heardSpeech = useRef(false);
   /** False once this surface is gone, so late async steps can never leave a recording running. */
   const alive = useRef(true);
+  const stopMeterWait = useRef<(() => void) | null>(null);
 
   const [phase, setPhase] = useState<Phase>('starting');
   const [error, setError] = useState<MicError | null>(null);
@@ -137,6 +139,12 @@ export function RecordSurface() {
     };
     setPhase('recording');
     loop();
+    // The meter's AudioContext can stall the page while Chrome opens the audio device, so it
+    // starts once the screen has finished opening. Recording itself is already running.
+    stopMeterWait.current?.();
+    stopMeterWait.current = afterMotion(() => {
+      if (alive.current && recorder.current === rec) rec.startMeter();
+    });
 
     if (settings.liveCaptions && getStatus().speech === 'available') {
       captions.current = startCaptions({
@@ -155,6 +163,7 @@ export function RecordSurface() {
     void begin();
     return () => {
       alive.current = false;
+      stopMeterWait.current?.();
       stopLoop();
       // Leaving without Stop (e.g. the app closed): keep what was recorded as a draft.
       if (recorder.current && recorder.current.state !== 'stopped') {

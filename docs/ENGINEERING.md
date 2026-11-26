@@ -56,6 +56,30 @@ These are the problems we hit while building Offline on Firebase AI Logic hybrid
 - **Transcription** ([`wav.ts`](../src/lib/audio/wav.ts)): decode with an `OfflineAudioContext` created at 16 kHz, so `decodeAudioData` decodes *and* resamples in one step. Then encode 16-bit mono WAV (32 KB per second) and send it in 120-second chunks (Remote Config) to stay well under the inline request size.
 - **Timing:** each chunk returns `{start, end, text}` segments through `responseJsonSchema`. We offset them back to the whole clip and sanitize them: clamp to the chunk, keep the order, spread by length if a model returns no times.
 
+## 6. The first `AudioContext` froze the page for a second, so the open animation never showed
+
+**What happened.** Tapping Record opened the recording screen with no visible motion: it simply appeared. A trace in Chrome showed one **2,053 ms long task** starting about 40 ms after the tap. Wrapping the constructors pinned it down: the first `new AudioContext()` took **1,046 ms** (Chrome opening the audio device on the main thread); a second one took 71 ms. `new MediaRecorder()` took 1 ms and `start()` 3 ms. The opening animation was a WAAPI `clip-path` animation, which runs on the main thread, and its timeline kept moving while the page was blocked. By the first painted frame it was already finished. A second, smaller problem: its easing was front-loaded (half size at 0.14 s, 80% at 0.25 s), so even unblocked it read as a jump.
+
+**Fix.**
+
+- The level meter, the only thing that needs an `AudioContext`, moved out of `Recorder.start()` into `startMeter()`. It is called through `afterMotion()`, once the screen has finished opening ([`recorder.ts`](../src/lib/audio/recorder.ts), [`Record.tsx`](../src/app/surfaces/Record.tsx)). Recording itself starts at once: `MediaRecorder` needs no `AudioContext`.
+- The animation's clock now advances by **at most 34 ms per frame** and starts on the first frame that is actually painted. A stalled frame pauses the motion; it can never skip it.
+
+## 7. The genie: bending a live page without a screenshot API
+
+**What we wanted.** Every page, sheet and menu pours out of the control you tapped, like a window leaving the Dock, and pours back into it on close.
+
+**The problem.** The web has no API to snapshot DOM into a texture. `clip-path` can only mask a page, not bend it; `html2canvas`-style rasterizing is slow and loses fonts; View Transitions give one flat image per element.
+
+**What we built** ([`genie.ts`](../src/app/ui/genie.ts), unit-tested in [`genie.test.ts`](../src/app/ui/__tests__/genie.test.ts)):
+
+- The live element stays in place, invisible but laid out and focusable. On top of it, **up to 40 horizontal slices**, each holding a DOM clone of the element offset to its band.
+- Each slice is mapped onto a trapezoid with a **projective `matrix3d`**: the square-to-quad homography (Heckbert), pre-scaled from pixels to the unit square. Neighbouring trapezoids share edges, so the outline is a smooth curve, and the content inside really bends. Rows next to the tap start 42% later than the far edge, which gives the funnel.
+- **Copies are cheap.** Anything entirely off screen is emptied but keeps its box (so nothing on screen moves). Ids and form `name`s are stripped, so a cloned radio button can't uncheck the real one. Scroll positions are restored on every copy. Inside copies, animations, transitions and `will-change` are switched off. With them on, 40 copies of a pulsing button dropped headless Chrome to a few frames per second. Building 40 slices takes **1–16 ms**.
+- **Copies wait for the content.** A page that loads saved data on mount would pour out empty. A `MutationObserver` waits until the element has been quiet for 60 ms (at most 320 ms) before the copies are taken.
+- **`line-height` must be carried over as a ratio.** The copy lives outside the element's parent, so inherited styles are copied from `getComputedStyle`. That *resolves* `line-height: 1.5` to `18px`, and every heading inside then inherited 18 px instead of 1.5 × its own size. Copies laid out 10–25 px shorter than the real page, and a double image showed at the end. We now set the ratio, `lineHeight / fontSize`.
+- A small sheet opened from a button far away was stretched over the whole screen. The trailing edge is now dragged along once the shape is **1.35×** its own height, so it travels as a teardrop instead.
+
 ## More we ran into
 
 - **SDK v13 `Part` types need a discriminator.** `{ text }` no longer type-checks as a `Part`; it must be `{ type: 'text', text }` (and `{ type: 'inlineData', … }`). Runtime still accepts the old shape through `assignPartType`.

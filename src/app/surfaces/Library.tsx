@@ -71,7 +71,7 @@ export function LibrarySurface({ tab: initial }: { tab?: string }) {
       </div>
       {tab === 'notes' ? (
         <footer className="tool-foot single">
-          <button type="button" className="btn btn-line" onClick={() => open({ kind: 'note', id: 'new', enter: 'rise' })}>
+          <button type="button" className="btn btn-line" onClick={() => open({ kind: 'note', id: 'new' })}>
             <NotebookPen aria-hidden />
             New note
           </button>

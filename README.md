@@ -99,7 +99,7 @@ pnpm install
 
    ```bash
    pnpm dev          # http://localhost:5180/app
-   pnpm test         # unit tests (routing policy, prompts, audio, text)
+   pnpm test         # unit tests (routing policy, prompts, audio, text, the genie's geometry)
    pnpm build && npx firebase-tools deploy --only hosting,remoteconfig
    ```
 
@@ -109,7 +109,7 @@ On-device AI needs desktop Chrome with the built-in Prompt API (Gemini Nano) on 
 
 ## Tests
 
-- `pnpm test`: 26 unit tests for the routing policy, prompt assembly, history packing, transcript timing, WAV encoding and text helpers.
+- `pnpm test`: 32 unit tests for the routing policy, prompt assembly, history packing, transcript timing, WAV encoding, text helpers and the genie's geometry (slices meet exactly, never fold, and land on the page).
 - `tests/e2e/record.mjs`: records through MediaRecorder (fed by a Web Audio "microphone"), saves to IndexedDB, transcribes through Firebase AI Logic and checks the timed sentences.
 - `tests/e2e/on-device.mjs`: drives Firebase AI Logic's Chrome adapter with a stand-in `LanguageModel`. It checks that on-device answers report `inferenceSource: on_device`, that **Work offline** makes zero requests to Firebase AI Logic, and that a device failure falls back to the cloud with the right label.
 - `tests/e2e/offline-load.mjs`: after one visit, the live site opens and saves notes with the network switched off.
@@ -131,7 +131,8 @@ src/lib/firebase.ts      App, App Check, AI, Remote Config
 src/lib/db.ts            IndexedDB (Dexie): drafts, audio, chats, notes, history, settings
 src/lib/audio/*          recorder, WAV encoding
 src/lib/speech.ts        on-device live captions (Web Speech API, processLocally only)
-src/app/*                the app: surfaces, sheets, the reveal animation
+src/app/*                the app: surfaces, sheets, menus
+src/app/ui/genie.ts      the genie: every page, sheet and menu pours out of the control you tapped
 src/landing/*            the site at /
 scripts/make-assets.mjs  renders icons and the social image from source
 ```

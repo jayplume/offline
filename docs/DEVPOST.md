@@ -48,7 +48,7 @@ Offline is a private voice-to-AI app built on Firebase AI Logic hybrid inference
   - chunked cloud transcription of 16 kHz WAV with timed sentences, so tapping a sentence plays that moment.
 - **App Check** with reCAPTCHA Enterprise in production (enforced for AI Logic) and a debug token on the dev server only. **Remote Config** for model names, budgets and prompt templates. **Firebase Hosting**. All provisioned from the Firebase CLI.
 - **Web platform:** React 19, Vite 8, TypeScript 7, Dexie (IndexedDB) with crash-safe recording checkpoints, MediaRecorder and Web Audio, the Web Speech API with `processLocally`, WebAuthn for the app lock, and a Workbox service worker so the app opens with no network.
-- **Design:** one tool on screen at a time. Recording and chats open with a slow circular reveal from the point you tapped; options live behind the three-dot menu; cancel sits top right. The palette is sky blue, soft blue, ash and white.
+- **Design:** one tool on screen at a time. Everything you open (a page, a sheet, a menu) pours out of the control you tapped, like a window leaving the Dock, and pours back into it when it closes; options live behind the three-dot menu; cancel sits top right. The palette is sky blue, soft blue, ash and white.
 
 ## Challenges we ran into
 
@@ -57,6 +57,8 @@ Offline is a private voice-to-AI app built on Firebase AI Logic hybrid inference
 - Audio isn't an on-device input in hybrid inference, and under `ONLY_ON_DEVICE` an audio part is decoded as an image. We moved offline speech to Chrome's on-device Web Speech API.
 - Chrome's MediaRecorder WebM reports `Infinity` duration and isn't on Gemini's audio list. We decode and resample to WAV in one step with an `OfflineAudioContext` and chunk long recordings.
 - Testing on-device AI on a machine that can't run Gemini Nano: we drove the SDK's own Chrome adapter with a stand-in `LanguageModel`.
+- The first `AudioContext` blocked the main thread for about a second (Chrome opening the audio device), so the record screen's opening animation finished before a single frame was drawn. The level meter now starts after the motion, and our animation clock can pause but never skip.
+- Making pages pour out of the tapped control (a genie) without a screenshot API: up to 40 sliced DOM copies, each warped onto a trapezoid with a projective `matrix3d`, built in under 20 ms.
 
 Details: [docs/ENGINEERING.md](https://github.com/jayplume/offline/blob/main/docs/ENGINEERING.md)
 

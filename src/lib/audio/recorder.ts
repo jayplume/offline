@@ -1,6 +1,6 @@
 /**
- * Microphone recording with MediaRecorder, plus a live level meter for the waveform and
- * silence detection. Elapsed time excludes pauses.
+ * Microphone recording with MediaRecorder, plus a live level meter (started separately, see
+ * startMeter) for the orb and silence detection. Elapsed time excludes pauses.
  */
 
 export type RecorderState = 'idle' | 'recording' | 'paused' | 'stopped';
@@ -100,7 +100,15 @@ export class Recorder {
     this.startedAt = performance.now();
     this.pausedTotal = 0;
     this.state = 'recording';
+  }
 
+  /**
+   * Starts the level meter (the orb and stop-after-silence). Separate from start() because the
+   * first AudioContext on a page can block the main thread for up to a second while Chrome opens
+   * the audio device: call it once the screen has finished opening. Recording does not need it.
+   */
+  startMeter(): void {
+    if (this.ctx || !this.stream || this.state === 'stopped') return;
     try {
       this.ctx = new AudioContext();
       const src = this.ctx.createMediaStreamSource(this.stream);

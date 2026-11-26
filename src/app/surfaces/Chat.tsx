@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowUp, Copy, FileText, Lock, Mic, RotateCcw, Square, Trash2, Cloud, Smartphone } from 'lucide-react';
 import type { Content } from 'firebase/ai';
 import { SurfaceBar, useSurface } from '../ui/Surface';
+import { afterMotion } from '../ui/genie';
 import { Confirm } from '../ui/Sheet';
 import { useToast } from '../ui/Toast';
 import { SourceBadge, LocalOnlyBadge } from '../ui/Badge';
@@ -98,10 +99,7 @@ export function ChatSurface({ id }: { id: string }) {
 
   // A run confirmed in the send preview starts here, exactly once.
   useEffect(() => {
-    if (!chatId) {
-      window.setTimeout(() => inputRef.current?.focus(), 450);
-      return;
-    }
+    if (!chatId) return afterMotion(() => inputRef.current?.focus());
     const pending = takeRun(chatId);
     if (pending) void run(chatId, pending.route);
   }, [chatId, run]);

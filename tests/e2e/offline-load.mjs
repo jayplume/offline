@@ -25,10 +25,10 @@ console.log('service worker controls the page:', await page.evaluate(() => Boole
 
 await ctx.setOffline(true);
 await page.goto(`${base}/app`);
-await page.waitForSelector('.home', { timeout: 15000 });
+await page.waitForSelector('#root .home', { timeout: 15000 });
 await page.waitForTimeout(1500);
-console.log('offline: home rendered =', await page.locator('.home-q').innerText());
-console.log('offline: status chip =', await page.locator('.status-chip').innerText());
+console.log('offline: home rendered =', await page.locator('#root .home-q').innerText());
+console.log('offline: status chip =', await page.locator('#root .status-chip').innerText());
 // Write a note with no network; it must save.
 await page.getByRole('button', { name: 'Note' }).click();
 await page.getByRole('textbox', { name: 'Note' }).fill('Written on a plane with no signal.');
@@ -36,7 +36,7 @@ await page.waitForTimeout(800);
 await page.screenshot({ path: `${outDir}/offline-note.png` });
 await page.getByRole('button', { name: 'Close' }).click();
 await page.waitForTimeout(1200);
-console.log('offline: recent list =', (await page.locator('.rows').first().innerText()).replace(/\n/g, ' | '));
+console.log('offline: recent list =', (await page.locator('#root .rows').first().innerText()).replace(/\n/g, ' | '));
 // A typed draft offline: the send preview must explain, not fail.
 await page.goto(`${base}/`);
 console.log('offline: landing title =', await page.title());

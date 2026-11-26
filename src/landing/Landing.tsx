@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, Check, Cloud, Lock, Mic, MicOff, RotateCcw, ShieldCheck, Smartphone, Trash2, Eye, History, WifiOff } from 'lucide-react';
 import { ArtClasses, ArtFlight, ArtMeeting, ArtSite, Mark } from './art';
+import { boxOf, genie } from '../app/ui/genie';
 
 const REPO = 'https://github.com/jayplume/offline';
 const HACKATHON = 'https://firebasehybridaihackathon.devpost.com/';
@@ -138,6 +139,16 @@ function PhoneDemo() {
   }, [reduce]);
 
   const phase = t < 1500 ? 'home' : t < 2400 ? 'reveal' : t < 8600 ? 'recording' : t < 9800 ? 'saved' : t < 12600 ? 'draft' : 'answer';
+
+  // The same genie as the app: the recording screen pours out of the tapped microphone.
+  const micRef = useRef<HTMLSpanElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const revealing = phase === 'reveal';
+  useLayoutEffect(() => {
+    if (!revealing || !micRef.current || !surfaceRef.current) return;
+    const g = genie(surfaceRef.current, { from: boxOf(micRef.current.getBoundingClientRect()), mode: 'open', duration: 950, zIndex: 4, attach: 'document', ready: true });
+    return () => g.cancel();
+  }, [revealing]);
   const recMs = Math.max(0, Math.min(t, 8600) - 2400);
   const words = Math.min(SPOKEN.length, Math.floor(recMs / 300));
   const answerChars = phase === 'answer' ? Math.min(ANSWER.length, Math.floor((t - 12600) / 22)) : 0;
@@ -159,13 +170,13 @@ function PhoneDemo() {
           </div>
           <p className="p-hello">Good evening</p>
           <p className="p-q">What's on your mind?</p>
-          <span className={`p-mic${phase === 'reveal' ? ' is-pressed' : ''}`}>
+          <span ref={micRef} className={`p-mic${phase === 'reveal' ? ' is-pressed' : ''}`}>
             <Mic />
           </span>
           <p className="p-tap">Tap to record</p>
         </div>
 
-        <div className={`p-surface${phase === 'home' ? '' : ' is-open'}${phase === 'draft' || phase === 'answer' ? ' is-paper' : ''}`}>
+        <div ref={surfaceRef} className={`p-surface${phase === 'home' ? '' : ' is-open'}${phase === 'draft' || phase === 'answer' ? ' is-paper' : ''}`}>
           {phase === 'recording' || phase === 'saved' || phase === 'reveal' ? (
             <div className="p-rec">
               <div className="p-bar">

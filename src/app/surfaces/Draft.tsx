@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { SurfaceBar, useSurface } from '../ui/Surface';
+import { afterMotion } from '../ui/genie';
 import { Sheet } from '../ui/Sheet';
 import { useToast } from '../ui/Toast';
 import { SourceBadge, LocalOnlyBadge } from '../ui/Badge';
@@ -95,7 +96,8 @@ function DraftView({ draft, fresh, focus }: { draft: Draft; fresh?: boolean; foc
 
   useEffect(() => {
     if (fresh && !draft.versions.length) toast(draft.recovered ? 'Recovered an interrupted recording' : 'Saved on this device');
-    if (focus) window.setTimeout(() => textRef.current?.focus(), 500);
+    // Once the page has landed: on phones a focused field opens the keyboard and resizes the view.
+    if (focus) return afterMotion(() => textRef.current?.focus());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

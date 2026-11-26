@@ -1,10 +1,13 @@
 /**
- * Bottom sheet for focused choices (confirmations, the send preview, improve options, status).
- * Slides up calmly, closes on the backdrop, Escape, or its own buttons. Focus stays inside.
+ * Sheets for focused choices (confirmations, the send preview, improve options, status).
+ * They pour out of the control that opened them (the genie) and back into it, or slide up when
+ * nothing was tapped. They close on the backdrop, Escape, or their own buttons. Focus stays inside.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { MOTION, genie, navigatedWithin, reducedMotion, type Genie } from './genie';
+import { recentTap, whereNow, type Tap } from './tap';
 
 export function Sheet({
   open,
@@ -27,6 +30,8 @@ export function Sheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const restore = useRef<HTMLElement | null>(null);
+  const tapRef = useRef<Tap | null>(null);
+  const run = useRef<Genie | null>(null);
 
   useEffect(() => {
     if (open) setMounted(true);
@@ -34,10 +39,29 @@ export function Sheet({
 
   useLayoutEffect(() => {
     if (!mounted || !open || !panelRef.current) return;
+    const panel = panelRef.current;
+    // Opened again while closing: drop the closing motion's leftovers first.
+    run.current?.cancel();
+    panel.getAnimations().forEach((a) => a.cancel());
+    backRef.current?.getAnimations().forEach((a) => a.cancel());
+    panel.style.opacity = '';
     restore.current = document.activeElement as HTMLElement | null;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    backRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduce ? 120 : 360, easing: 'ease-out' });
-    panelRef.current.animate(
+    const reduce = reducedMotion();
+    const tap = reduce ? null : recentTap(900);
+    tapRef.current = tap;
+    const focusFirst = () => panel.querySelector<HTMLElement>('[data-autofocus], textarea, input, button:not(.sheet-x)')?.focus({ preventScroll: true });
+    backRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduce ? 120 : tap ? MOTION.sheetOpen * 0.7 : 360, easing: 'ease-out' });
+    if (tap) {
+      const g = genie(panel, { from: tap.box, mode: 'open', duration: MOTION.sheetOpen, zIndex: 81 });
+      run.current = g;
+      // Focus once it has landed: on phones a focused field opens the keyboard and moves the sheet.
+      void g.finished.then(() => {
+        if (run.current === g) run.current = null;
+        if (panel.isConnected && !panel.contains(document.activeElement)) focusFirst();
+      });
+      return;
+    }
+    panel.animate(
       reduce
         ? [{ opacity: 0 }, { opacity: 1 }]
         : [
@@ -46,22 +70,34 @@ export function Sheet({
           ],
       { duration: reduce ? 120 : 480, easing: 'cubic-bezier(0.22, 0.8, 0.2, 1)' },
     );
-    const first = panelRef.current.querySelector<HTMLElement>('[data-autofocus], textarea, input, button:not(.sheet-x)');
-    first?.focus({ preventScroll: true });
+    focusFirst();
   }, [mounted, open]);
 
   useEffect(() => {
     if (open || !mounted) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    backRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reduce ? 100 : 260, fill: 'forwards' });
-    const a = panelRef.current?.animate(
-      reduce ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateY(100%)' }],
-      { duration: reduce ? 100 : 320, easing: 'cubic-bezier(0.45, 0, 0.75, 0.2)', fill: 'forwards' },
-    );
+    const panel = panelRef.current;
+    const reduce = reducedMotion();
+    const tap = tapRef.current;
+    const at = run.current ? run.current.progress() : 1;
+    run.current?.cancel();
+    run.current = null;
     const done = () => {
       setMounted(false);
       restore.current?.focus?.({ preventScroll: true });
     };
+    // Back into the control it came from, unless its action is opening or closing a page right now.
+    if (panel && tap && !reduce && !navigatedWithin(250)) {
+      backRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MOTION.sheetClose * 0.8, easing: 'ease-in', fill: 'forwards' });
+      genie(panel, { from: whereNow(tap), mode: 'close', duration: MOTION.sheetClose, zIndex: 81, at });
+      const t = window.setTimeout(done, MOTION.sheetClose * 0.8);
+      return () => window.clearTimeout(t);
+    }
+    const quick = reduce || navigatedWithin(250);
+    backRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: quick ? 140 : 260, fill: 'forwards' });
+    const a = panel?.animate(
+      quick ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateY(100%)' }],
+      { duration: quick ? 140 : 320, easing: 'cubic-bezier(0.45, 0, 0.75, 0.2)', fill: 'forwards' },
+    );
     if (a) a.finished.then(done, done);
     else done();
   }, [open, mounted]);

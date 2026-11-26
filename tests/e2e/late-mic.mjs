@@ -30,7 +30,7 @@ const page = await ctx.newPage();
 await page.goto(`${base}/app`);
 await page.getByRole('button', { name: 'Start' }).click();
 await page.getByRole('button', { name: 'Record a thought' }).click();
-await page.waitForSelector('.slow-start', { timeout: 9000 });
+await page.waitForSelector('#root .slow-start', { timeout: 9000 });
 await page.getByRole('button', { name: 'Type it instead' }).click();
 await page.waitForTimeout(5000); // the "permission" is granted while the person is typing
 const result = await page.evaluate(async () => {

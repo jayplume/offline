@@ -41,14 +41,6 @@ html.surface-open body {
   margin: 0 auto;
   min-height: 100dvh;
   padding: 0 var(--gutter) calc(40px + env(safe-area-inset-bottom));
-  transform-origin: 50% 40%;
-  transition:
-    transform var(--d-reveal) var(--ease-calm),
-    filter var(--d-reveal) var(--ease-calm);
-}
-.home.is-covered {
-  transform: scale(0.985);
-  filter: saturate(0.85);
 }
 .home-bar {
   position: sticky;
@@ -446,21 +438,22 @@ html.surface-open body {
   inset: 0;
   z-index: 40;
   overflow: hidden;
-  background: var(--white);
-  will-change: clip-path;
-}
-.surface-layer.tone-sky {
-  background:
-    radial-gradient(120% 80% at 50% 55%, var(--sky-100) 0%, var(--sky-50) 55%, var(--white) 100%);
 }
 .surface-inner {
   position: relative;
   height: 100%;
 }
+/* Each step carries its own background, so a new step can pour out over the last one. */
 .surface-step {
   position: absolute;
   inset: 0;
+  background: var(--white);
 }
+.surface-step.tone-sky {
+  background:
+    radial-gradient(120% 80% at 50% 55%, var(--sky-100) 0%, var(--sky-50) 55%, var(--white) 100%);
+}
+
 .surface-step.is-leaving {
   pointer-events: none;
 }
@@ -2298,11 +2291,6 @@ del {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home,
-  .home.is-covered {
-    transform: none;
-    transition: none;
-  }
   .orb-ring,
   .orb-core {
     transition: none;

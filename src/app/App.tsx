@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Mic, ShieldCheck, Sparkles } from 'lucide-react';
 import { SurfaceHost, SurfaceProvider, useSurface, type SurfaceSpec } from './ui/Surface';
+import { installTapTracker } from './ui/tap';
 import { ToastProvider, useToast } from './ui/Toast';
 import { Sheet } from './ui/Sheet';
 import { Home } from './Home';
@@ -55,8 +56,9 @@ function Shell() {
   const lastActive = useRef(Date.now());
   const shortcutDone = useRef(false);
 
-  // Start-up: live status, recover interrupted recordings, apply audio clean-up.
+  // Start-up: where taps land (for the genie), live status, recover interrupted recordings.
   useEffect(() => {
+    installTapTracker();
     startStatusWatch();
     void recoverInterruptedRecordings().then((n) => {
       if (n) toast(n === 1 ? 'Recovered 1 interrupted recording' : `Recovered ${n} interrupted recordings`);
@@ -109,7 +111,7 @@ function Shell() {
     };
     const idle = window.setInterval(() => {
       // Never lock in the middle of a recording.
-      if (Date.now() - lastActive.current > limit && !document.querySelector('.tool-record')) setLocked(true);
+      if (Date.now() - lastActive.current > limit && !document.querySelector('#root .tool-record')) setLocked(true);
     }, 15_000);
     window.addEventListener('pointerdown', touch);
     window.addEventListener('keydown', touch);
@@ -129,19 +131,21 @@ function Shell() {
     const action = new URLSearchParams(window.location.search).get('do');
     if (!action) return;
     window.history.replaceState(null, '', '/app');
-    if (action === 'record') open({ kind: 'record', enter: 'reveal', origin: { x: window.innerWidth / 2, y: window.innerHeight * 0.45 } });
-    if (action === 'note') open({ kind: 'note', id: 'new', enter: 'rise' });
+    // No tap to pour out of: the record button (for Record) or the bottom of the screen.
+    if (action === 'record') open({ kind: 'record' });
+    if (action === 'note') open({ kind: 'note', id: 'new' });
   }, [ready, locked, open]);
 
   // Keyboard: R records from the home screen; Escape acts like the surface's cancel button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable="true"]');
-      if (e.key === 'Escape' && current && !document.querySelector('.sheet-root, .menu')) {
-        document.querySelector<HTMLButtonElement>('.surface-layer .surface-step:not(.is-leaving) .surface-bar .bar-right button')?.click();
+      // #root: the genie's copies (outside it) look like menus and pages but are only pictures.
+      if (e.key === 'Escape' && current && !document.querySelector('.sheet-root, #root .menu')) {
+        document.querySelector<HTMLButtonElement>('#root .surface-layer .surface-step:not(.is-leaving) .surface-bar .bar-right button')?.click();
       }
       if (!current && !typing && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'r' || e.key === 'R') && locked === false) {
-        document.querySelector<HTMLButtonElement>('.record-btn')?.click();
+        document.querySelector<HTMLButtonElement>('#root .record-btn')?.click();
       }
     };
     window.addEventListener('keydown', onKey);

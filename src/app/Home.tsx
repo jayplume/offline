@@ -19,7 +19,7 @@ import {
 import { db, type Chat, type Draft, type Note } from '../lib/db';
 import { useStatus } from '../lib/status';
 import { formatDuration, relativeTime } from '../lib/text';
-import { centreOf, originOf, useSurface } from './ui/Surface';
+import { useSurface } from './ui/Surface';
 import { Menu, type MenuItem } from './ui/Menu';
 import { Confirm } from './ui/Sheet';
 import { StatusSheet } from './StatusSheet';
@@ -62,7 +62,7 @@ export function Home({ onLock }: { onLock: () => void }) {
   const startRecording = () => {
     setPressed(true);
     window.setTimeout(() => setPressed(false), 700);
-    open({ kind: 'record', enter: 'reveal', origin: centreOf(recordRef.current) });
+    open({ kind: 'record' });
   };
 
   const onRecord = () => {
@@ -73,9 +73,9 @@ export function Home({ onLock }: { onLock: () => void }) {
   const effectiveOffline = !status.online || settings.workOffline;
 
   const menu: MenuItem[] = [
-    { key: 'library', label: 'Library', hint: 'All drafts, chats and notes', icon: <BookOpen />, onSelect: () => open({ kind: 'library', enter: 'rise' }) },
-    { key: 'history', label: 'History', hint: 'What was sent, when and where', icon: <History />, onSelect: () => open({ kind: 'history', enter: 'rise' }) },
-    { key: 'settings', label: 'Settings', icon: <SettingsIcon />, onSelect: () => open({ kind: 'settings', enter: 'rise' }) },
+    { key: 'library', label: 'Library', hint: 'All drafts, chats and notes', icon: <BookOpen />, onSelect: () => open({ kind: 'library' }) },
+    { key: 'history', label: 'History', hint: 'What was sent, when and where', icon: <History />, onSelect: () => open({ kind: 'history' }) },
+    { key: 'settings', label: 'Settings', icon: <SettingsIcon />, onSelect: () => open({ kind: 'settings' }) },
     {
       key: 'work-offline',
       label: 'Work offline',
@@ -128,11 +128,11 @@ export function Home({ onLock }: { onLock: () => void }) {
         <p className="record-caption">Tap to record</p>
         <p className="home-note">Saved on this device. Nothing is sent until you say so.</p>
         <div className="home-actions">
-          <button type="button" className="btn btn-line" onClick={() => open({ kind: 'note', id: 'new', enter: 'rise' })}>
+          <button type="button" className="btn btn-line" onClick={() => open({ kind: 'note', id: 'new' })}>
             <NotebookPen aria-hidden />
             Note
           </button>
-          <button type="button" className="btn btn-line" onClick={(e) => open({ kind: 'chat', id: 'new', enter: 'reveal', origin: originOf(e) })}>
+          <button type="button" className="btn btn-line" onClick={() => open({ kind: 'chat', id: 'new' })}>
             <Sparkles aria-hidden />
             Ask
           </button>
@@ -144,7 +144,7 @@ export function Home({ onLock }: { onLock: () => void }) {
           <div className="list-head">
             <h2 id="waiting-h">Waiting for you</h2>
             {waitingCount > waiting.length ? (
-              <button type="button" className="link-btn" onClick={() => open({ kind: 'library', enter: 'rise', params: { tab: 'drafts' } })}>
+              <button type="button" className="link-btn" onClick={() => open({ kind: 'library', params: { tab: 'drafts' } })}>
                 See all {waitingCount}
               </button>
             ) : null}
@@ -152,7 +152,7 @@ export function Home({ onLock }: { onLock: () => void }) {
           <ul className="rows">
             {waiting.map((d) => (
               <li key={d.id}>
-                <DraftRow draft={d} onOpen={(origin) => open({ kind: 'draft', id: d.id, enter: 'reveal', origin })} />
+                <DraftRow draft={d} onOpen={() => open({ kind: 'draft', id: d.id })} />
               </li>
             ))}
           </ul>
@@ -163,7 +163,7 @@ export function Home({ onLock }: { onLock: () => void }) {
         <section className="list-section" aria-labelledby="recent-h">
           <div className="list-head">
             <h2 id="recent-h">Recent</h2>
-            <button type="button" className="link-btn" onClick={() => open({ kind: 'library', enter: 'rise' })}>
+            <button type="button" className="link-btn" onClick={() => open({ kind: 'library' })}>
               Library
             </button>
           </div>
@@ -175,14 +175,14 @@ export function Home({ onLock }: { onLock: () => void }) {
                     icon={<MessageCircle />}
                     title={r.item.title}
                     meta={[relativeTime(r.item.updatedAt), r.item.localOnly ? 'Device only' : '']}
-                    onOpen={(origin) => open({ kind: 'chat', id: r.item.id, enter: 'reveal', origin })}
+                    onOpen={() => open({ kind: 'chat', id: r.item.id })}
                   />
                 ) : (
                   <Row
                     icon={<NotebookPen />}
                     title={noteTitle(r.item)}
                     meta={[relativeTime(r.item.updatedAt), r.item.summary ? 'Summarized' : '']}
-                    onOpen={() => open({ kind: 'note', id: r.item.id, enter: 'rise' })}
+                    onOpen={() => open({ kind: 'note', id: r.item.id })}
                   />
                 )}
               </li>
@@ -215,7 +215,7 @@ export function noteTitle(n: Note): string {
   return first.length > 60 ? `${first.slice(0, 57).replace(/\s+\S*$/, '')}…` : first || 'Untitled note';
 }
 
-export function DraftRow({ draft, onOpen }: { draft: Draft; onOpen: (origin: { x: number; y: number }) => void }) {
+export function DraftRow({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
   const text = draft.versions.length ? 'Transcribed' : draft.hasAudio ? 'Audio only' : 'Empty';
   return (
     <Row
@@ -236,10 +236,10 @@ export function Row({
   icon: React.ReactNode;
   title: string;
   meta: string[];
-  onOpen: (origin: { x: number; y: number }) => void;
+  onOpen: () => void;
 }) {
   return (
-    <button type="button" className="row" onClick={(e) => onOpen(originOf(e))}>
+    <button type="button" className="row" onClick={onOpen}>
       <span className="row-icon" aria-hidden>
         {icon}
       </span>

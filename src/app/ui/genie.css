@@ -1,0 +1,42 @@
+/*
+ * The genie (genie.ts): copies of a page, cut into slices and bent out of the tapped control.
+ * Loaded with the engine, so the landing page demo has it too.
+ */
+.genie {
+  pointer-events: none;
+  contain: layout style;
+}
+.genie-slice {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+/* Hairlines along the sides only (no seams between slices): the outline of the funnel. */
+.genie.has-edges .genie-slice::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 1px 0 0 rgba(27, 35, 43, 0.1),
+    inset -1px 0 0 rgba(27, 35, 43, 0.1);
+  pointer-events: none;
+}
+.genie-dim {
+  position: fixed;
+  inset: 0;
+  background: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+}
+/* The copies are still pictures: nothing inside them animates or asks for its own layer. */
+.genie-slice *,
+.genie-slice *::before,
+.genie-slice *::after {
+  animation: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
